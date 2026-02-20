@@ -841,11 +841,11 @@ async function prepareBotPath() {
 
 /* =========================
    IA PROXY
-   - Por defecto usa el backend same-origin de este proyecto.
-   - También puedes pasar ?proxy=https://tu-endpoint para override.
+   - Cambia PROXY_URL a tu endpoint (Vercel, etc.)
+   - También puedes pasar ?proxy=https://tu-endpoint
 ========================= */
 const urlParams = new URLSearchParams(location.search);
-let PROXY_URL = urlParams.get('proxy') || "/api/chat";
+let PROXY_URL = urlParams.get('proxy') || "https://hotel-chat-proxy.vercel.app/api/chat";
 // Espera respuesta JSON: { choices: [ { message: { content: "…" } } ] } (OpenAI-style)
 
 /* =========================
@@ -1820,7 +1820,7 @@ async function handleChatOpened() {
    IA: MENSAJERÍA
 ========================= */
 const MESSAGES = []; // {role:'system'|'user'|'assistant', content:string}
-const CURRENT = { avatarUrl: "", hotelName: "", contextInfo: "", personality:"warm", vectorStoreId: "" };
+const CURRENT = { avatarUrl: "", hotelName: "", contextInfo: "", personality:"warm" };
 let CAL_ENABLED = false;
 let CAL_LINK = '';
 let CAL_INIT_DONE = false;
@@ -1948,17 +1948,16 @@ async function askAI(userText) {
   ${SYSTEM_PROMPT || ""}
 
   Respond to the user in ${languageName}.
-  If a knowledge base is configured, use it to ground your answer.
 
+  Use the following hotel information to answer the guest accurately:
+
+  ${CURRENT.contextInfo || ""}
   `;
 
   const body = {
     messages: MESSAGES,
-    system: combinedSystem,
-    vectorStoreId: CURRENT.vectorStoreId || ""
+    system: combinedSystem
   };
-
-  console.log("Enviando a proxy:", PROXY_URL, "vectorStoreId:", CURRENT.vectorStoreId);
 
   const res = await fetch(PROXY_URL, {
     method: "POST",
@@ -1966,24 +1965,7 @@ async function askAI(userText) {
     body: JSON.stringify(body)
   });
 
-  if (!res.ok) {
-    let errorPayload = null;
-    try {
-      errorPayload = await res.clone().json();
-    } catch (_) {
-      try {
-        errorPayload = await res.text();
-      } catch (__){
-        errorPayload = null;
-      }
-    }
-    console.error("Error del proxy:", {
-      status: res.status,
-      statusText: res.statusText,
-      payload: errorPayload
-    });
-    throw new Error("IA request failed: " + res.status);
-  }
+  if (!res.ok) throw new Error("IA request failed: " + res.status);
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
 }
@@ -2353,11 +2335,6 @@ eref('config/avatarUrl').on('value', s => {
     if (MESSAGES.length > 0 && MESSAGES[0].role === 'system') {
       MESSAGES[0].content = buildSystemPrompt();
     }
-  });
-
-  eref('config/vectorStoreId').on('value', s => {
-    CURRENT.vectorStoreId = s.val() || "";
-    console.log("vectorStoreId cargado:", CURRENT.vectorStoreId);
   });
 
   eref('config/personality').on('value', s => {

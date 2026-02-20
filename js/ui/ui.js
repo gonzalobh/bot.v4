@@ -1029,8 +1029,6 @@ return bot;
 let BOT = getBot();
 let BOT_COLLECTION_PATH = null;
 let BOT_LEGACY_PATH = null;
-const PROXY_URL = (window.PROXY_URL || '/api').replace(/\/$/, '');
-const CURRENT = { vectorStoreId: '' };
 let messagesTabInitialized = false;
 let messagesCurrentBot = BOT;
 let messagesSelectedChatId = null;
@@ -2660,10 +2658,6 @@ return `${getConfigBotCollectionPath()}/${botId}`;
 }
 function eref(path) {
 return db.ref(`${getBotBasePath()}/${path}`);
-}
-async function saveBotConfig(payload = {}) {
-if (!payload || typeof payload !== 'object') return;
-await eref('config').update(payload);
 }
 function getBotsRef() {
 if (BOT_COLLECTION_PATH) {
@@ -4528,9 +4522,6 @@ section.classList.toggle('hidden', !shouldShow);
 if (targetTab === 'dashboard2') {
 loadDashboard2Data();
 }
-if (targetTab === 'knowledge' && typeof window.__loadKnowledgeFiles === 'function') {
-window.__loadKnowledgeFiles();
-}
 if (targetTab === 'chat') {
 if (typeof window.__setDefaultChatPanel === 'function') {
 window.__setDefaultChatPanel();
@@ -6271,178 +6262,6 @@ const modalClose = $('closeKnowledgeModal');
 const modalCancel = $('cancelKnowledgeModal');
 const modalConfirm = $('confirmAddKnowledge');
 const modalInput = $('knowledgeUrlInput');
-const uploadBtn = document.getElementById('uploadKnowledgeBtn');
-const fileInput = document.getElementById('knowledgeFileInput');
-const statusBox = document.getElementById('knowledgeUploadStatus');
-const knowledgeListEl = document.getElementById('knowledgeList');
-const MAX_SIZE_MB = 10;
-const ALLOWED_KNOWLEDGE_EXTENSIONS = ['pdf', 'txt', 'doc', 'docx'];
-const sanitizeFilename = (name = '') => name.replace(/[^a-zA-Z0-9._-]/g, '_');
-const buildKnowledgeStoragePath = (file) => {
-const safeName = sanitizeFilename(file?.name || 'document.txt');
-return `knowledge/${EMPRESA}/${BOT}/${Date.now()}-${safeName}`;
-};
-const uploadKnowledgeFile = async (file) => {
-const storagePath = buildKnowledgeStoragePath(file);
-const storageRef = storage.ref(storagePath);
-await storageRef.put(file);
-const url = await storageRef.getDownloadURL();
-return { url, storagePath };
-};
-const loadKnowledgeFiles = async () => {
-if (!knowledgeListEl) return;
-try {
-  knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">Cargando documentos...</div></div>';
-  const snap = await eref('knowledgeFiles').once('value');
-  const filesObj = snap.val() || {};
-  const entries = Object.entries(filesObj)
-    .map(([openaiFileId, meta]) => ({ openaiFileId, ...(meta || {}) }))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  knowledgeListEl.innerHTML = '';
-  if (!entries.length) {
-    knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">Aún no hay documentos.</div></div>';
-    return;
-  }
-
-  for (const entry of entries) {
-    const row = document.createElement('div');
-    row.className = 'knowledge-item';
-    const sizeLabel = Number.isFinite(entry?.size) ? ` <small style="opacity:.6">(${Math.round(entry.size / 1024)} KB)</small>` : '';
-    row.innerHTML = `
-      <div class="knowledge-name">
-        ${entry.filename || entry.openaiFileId}
-        ${sizeLabel}
-      </div>
-      <div class="knowledge-actions" title="Eliminar" aria-label="Eliminar">🗑️</div>
-    `;
-
-    row.querySelector('.knowledge-actions')?.addEventListener('click', async () => {
-      if (!confirm('¿Eliminar este documento?')) return;
-      const warningMessages = [];
-
-      try {
-        if (entry.storagePath) {
-          await storage.ref(entry.storagePath).delete();
-        }
-      } catch (err) {
-        warningMessages.push('No se pudo borrar de Firebase Storage.');
-        console.warn('Storage delete failed:', err);
-      }
-
-      try {
-        const resp = await fetch(`${PROXY_URL}/knowledge/delete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            openaiFileId: entry.openaiFileId,
-            vectorStoreId: entry.vectorStoreId || CURRENT.vectorStoreId
-          })
-        });
-        const payload = await resp.json().catch(() => ({}));
-        if (!resp.ok || payload?.ok === false) {
-          warningMessages.push('No se pudo eliminar completamente en OpenAI.');
-          console.warn('OpenAI delete warning:', payload);
-        }
-      } catch (err) {
-        warningMessages.push('No se pudo eliminar en OpenAI.');
-        console.warn('OpenAI delete failed:', err);
-      }
-
-      try {
-        await eref(`knowledgeFiles/${entry.openaiFileId}`).remove();
-      } catch (err) {
-        console.error('DB delete failed:', err);
-        alert('No se pudo limpiar metadata del documento.');
-        return;
-      }
-
-      await loadKnowledgeFiles();
-      if (warningMessages.length) {
-        alert(`Documento eliminado con advertencias:\n- ${warningMessages.join('\n- ')}`);
-      }
-    });
-
-    knowledgeListEl.appendChild(row);
-  }
-} catch (err) {
-  console.error('Knowledge list failed:', err);
-  knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">Error cargando documentos.</div></div>';
-}
-};
-window.__loadKnowledgeFiles = loadKnowledgeFiles;
-
-if (uploadBtn) {
-uploadBtn.addEventListener('click', async () => {
-const files = fileInput?.files;
-if (!files || !files.length) {
-alert('Selecciona al menos un archivo');
-return;
-}
-
-try {
-for (const file of files) {
-if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-throw new Error('Archivo demasiado grande (máx 10MB)');
-}
-
-const ext = file.name.split('.').pop()?.toLowerCase();
-if (!ext || !ALLOWED_KNOWLEDGE_EXTENSIONS.includes(ext)) {
-throw new Error('Tipo de archivo no permitido');
-}
-
-if (statusBox) statusBox.innerText = `Subiendo ${file.name}...`;
-const uploadedFile = await uploadKnowledgeFile(file);
-if (statusBox) statusBox.innerText = `Indexando ${file.name}...`;
-const importResp = await fetch(`${PROXY_URL}/knowledge/importUrl`, {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-fileUrl: uploadedFile.url,
-filename: file.name,
-vectorStoreId: CURRENT.vectorStoreId,
-empresa: EMPRESA,
-bot: BOT,
-storagePath: uploadedFile.storagePath
-})
-});
-
-const data = await importResp.json().catch(() => ({}));
-if (!importResp.ok || !data?.ok) {
-throw new Error(data?.message || data?.error || 'Error indexando archivo');
-}
-
-if (data.vectorStoreId) {
-console.log('Guardando vectorStoreId:', data.vectorStoreId);
-await eref('config/vectorStoreId').set(data.vectorStoreId);
-CURRENT.vectorStoreId = data.vectorStoreId;
-}
-
-if (data.openaiFileId) {
-await eref(`knowledgeFiles/${data.openaiFileId}`).set({
-filename: data.filename || file.name,
-storagePath: data.storagePath || uploadedFile.storagePath,
-createdAt: Date.now(),
-vectorStoreId: data.vectorStoreId || CURRENT.vectorStoreId || '',
-size: file.size || 0
-});
-}
-
-if (statusBox) statusBox.innerText = `Listo: ${file.name}`;
-}
-fileInput.value = '';
-await loadKnowledgeFiles();
-} catch (err) {
-console.error('Knowledge upload failed:', err);
-if (statusBox) statusBox.innerText = err?.message || 'Error subiendo archivos';
-}
-});
-}
-
-if (currentActiveTab === 'knowledge') {
-loadKnowledgeFiles();
-}
-
 if (btn) {
   btn.textContent = t('saveButton');
   registerTranslationTarget(btn, 'saveButton');
@@ -6997,9 +6816,6 @@ applyTextareaState();
 (async () => {
 const snap = await pagesRef.once('value');
 pages = parsePages(snap.val());
-const configSnap = await eref('config').once('value');
-const config = configSnap.val() || {};
-CURRENT.vectorStoreId = config.vectorStoreId || '';
 if (!pages.length) {
 const legacySnap = await legacyRef.once('value');
 const legacyText = legacySnap.val();
