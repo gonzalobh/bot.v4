@@ -226,3 +226,39 @@
 .knowledge-upload-card button {
   margin-top: 10px;
 }
+
+.knowledge-list {
+  margin-top: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.knowledge-list:empty {
+  display: none;
+}
+
+.knowledge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.knowledge-item:last-child {
+  border-bottom: 0;
+}
+
+.knowledge-name {
+  font-size: 14px;
+}
+
+.knowledge-actions {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.knowledge-actions:hover {
+  opacity: 1;
+}
