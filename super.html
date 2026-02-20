@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Superadministrador</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <div class="max-w-5xl mx-auto py-16 px-4" id="app">
+      <div id="loader" class="flex flex-col items-center gap-4 text-slate-200">
+        <div class="h-10 w-10 border-4 border-slate-700 border-t-slate-100 rounded-full animate-spin"></div>
+        <p class="text-sm text-slate-300">Cargando...</p>
+      </div>
+
+      <div
+        id="login"
+        class="hidden max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-8 text-center space-y-6"
+      >
+        <div>
+          <h1 class="text-2xl font-semibold mb-2 text-white">Acceso Superadministrador</h1>
+          <p class="text-sm text-slate-400">
+            Inicia sesión con tu cuenta de Google autorizada para administrar empresas.
+          </p>
+        </div>
+        <button
+          id="google-login"
+          class="flex w-full items-center justify-center gap-3 rounded-lg bg-slate-100 text-slate-900 py-2 font-medium hover:bg-white transition"
+        >
+          <span class="text-lg">🔐</span>
+          Acceder con Google
+        </button>
+        <p id="login-error" class="mt-2 text-sm text-red-500 text-center hidden"></p>
+      </div>
+
+      <div
+        id="unauthorized"
+        class="hidden max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-8 text-center space-y-4"
+      >
+        <h2 class="text-2xl font-semibold text-white">Acceso denegado</h2>
+        <p id="unauthorized-message" class="text-sm text-slate-400">
+          Tu cuenta no tiene permisos para acceder a este panel.
+        </p>
+        <button
+          id="unauthorized-logout"
+          class="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800 transition"
+        >
+          Cerrar sesión
+        </button>
+      </div>
+
+      <div id="dashboard" class="hidden space-y-8">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-3xl font-semibold text-white">Panel de empresas</h1>
+            <p class="text-sm text-slate-400">Gestiona empresas y administradores globales.</p>
+          </div>
+          <button
+            id="logout-btn"
+            class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-6">
+          <h2 class="text-xl font-semibold mb-4 text-white">Crear empresa</h2>
+          <form id="create-form" class="grid gap-4 md:grid-cols-3">
+            <div class="md:col-span-1">
+              <label for="company-name" class="block text-sm font-medium text-slate-200">Nombre de la empresa</label>
+              <input
+                id="company-name"
+                type="text"
+                placeholder="Boletum"
+                class="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                required
+              />
+            </div>
+            <div class="md:col-span-1">
+              <label for="admin-email" class="block text-sm font-medium text-slate-200">Correo del administrador</label>
+              <input
+                id="admin-email"
+                type="email"
+                placeholder="admin@empresa.com"
+                class="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                required
+              />
+            </div>
+            <div class="md:col-span-1">
+              <label for="admin-password" class="block text-sm font-medium text-slate-200">Contraseña del administrador</label>
+              <input
+                id="admin-password"
+                type="password"
+                placeholder="••••••••"
+                class="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                required
+              />
+            </div>
+            <div class="md:col-span-3 flex items-end justify-end">
+              <button
+                type="submit"
+                class="w-full md:w-auto rounded-lg bg-white text-slate-900 px-6 py-2 font-medium hover:bg-slate-100 transition"
+              >
+                Crear empresa
+              </button>
+            </div>
+          </form>
+          <p id="create-message" class="mt-3 text-sm hidden"></p>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-white">Empresas registradas</h2>
+            <span id="company-count" class="text-sm text-slate-400"></span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-800">
+              <thead class="bg-slate-800 text-left text-xs font-medium uppercase tracking-wide text-slate-300">
+                <tr>
+                  <th class="px-4 py-3">Nombre</th>
+                  <th class="px-4 py-3">Email administrador</th>
+                  <th class="px-4 py-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="company-list" class="divide-y divide-slate-800 text-sm text-slate-100"></tbody>
+            </table>
+          </div>
+          <p id="companies-empty" class="text-center text-sm text-slate-400 py-6 hidden">No hay empresas registradas.</p>
+        </section>
+      </div>
+    </div>
+
+    <div
+      id="edit-modal"
+      class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/80 p-4"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xl text-slate-100">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-xl font-semibold text-white">Editar empresa</h3>
+            <p id="edit-company-name" class="text-sm text-slate-400"></p>
+          </div>
+          <button id="close-edit" class="text-slate-400 hover:text-slate-200">✕</button>
+        </div>
+        <form id="edit-form" class="mt-6 space-y-4">
+          <div>
+            <label for="edit-admin-email" class="block text-sm font-medium text-slate-200">Correo del administrador</label>
+            <input
+              type="email"
+              id="edit-admin-email"
+              class="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-600"
+              required
+            />
+          </div>
+          <div>
+            <label for="edit-hotel-name" class="block text-sm font-medium text-slate-200">Nombre visible</label>
+            <input
+              type="text"
+              id="edit-hotel-name"
+              class="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-600"
+              required
+            />
+          </div>
+          <div class="flex gap-3">
+            <button
+              type="submit"
+              class="flex-1 rounded-lg bg-white py-2 text-slate-900 font-medium hover:bg-slate-100 transition"
+            >
+              Guardar cambios
+            </button>
+            <button
+              type="button"
+              id="cancel-edit"
+              class="flex-1 rounded-lg border border-slate-700 py-2 font-medium text-slate-100 hover:bg-slate-800"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+        <p id="edit-message" class="mt-3 text-sm hidden"></p>
+      </div>
+    </div>
+
+    <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC2c3S_NtouIjHPrk5LM5c0DQoTWyBrzH4",
+  authDomain: "timbre-c9547.firebaseapp.com",
+  databaseURL: "https://timbre-c9547-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "timbre-c9547",
+  storageBucket: "timbre-c9547.firebasestorage.app",
+  messagingSenderId: "127064655657",
+  appId: "1:127064655657:web:a4e99dcbc6ab33f32c1938"
+};
+
+
+      firebase.initializeApp(firebaseConfig);
+      const auth = firebase.auth();
+      const db = firebase.database();
+      const secondaryApp =
+        firebase.apps.find((app) => app.name === "Secondary") ||
+        firebase.initializeApp(firebaseConfig, "Secondary");
+      const secondaryAuth = firebase.auth(secondaryApp);
+
+      const loader = document.getElementById("loader");
+      const loginCard = document.getElementById("login");
+      const loginButton = document.getElementById("google-login");
+      const loginError = document.getElementById("login-error");
+      const unauthorizedCard = document.getElementById("unauthorized");
+      const unauthorizedMessage = document.getElementById("unauthorized-message");
+      const unauthorizedLogoutBtn = document.getElementById("unauthorized-logout");
+      const dashboard = document.getElementById("dashboard");
+      const createForm = document.getElementById("create-form");
+      const createMessage = document.getElementById("create-message");
+      const companyList = document.getElementById("company-list");
+      const companiesEmpty = document.getElementById("companies-empty");
+      const companyCount = document.getElementById("company-count");
+      const logoutBtn = document.getElementById("logout-btn");
+
+      const editModal = document.getElementById("edit-modal");
+      const editForm = document.getElementById("edit-form");
+      const editAdminEmail = document.getElementById("edit-admin-email");
+      const editHotelName = document.getElementById("edit-hotel-name");
+      const editMessage = document.getElementById("edit-message");
+      const editCompanyNameLabel = document.getElementById("edit-company-name");
+      const closeEditBtn = document.getElementById("close-edit");
+      const cancelEditBtn = document.getElementById("cancel-edit");
+
+      let companiesRef = null;
+      let currentEditCompany = null;
+
+      const invalidKeyChars = /[.#$\[\]]/;
+
+      const setVisible = (el, show) => {
+        el.classList.toggle("hidden", !show);
+        el.classList.toggle("flex", show && el.id === "edit-modal");
+      };
+
+      const showMessage = (el, message, type = "success") => {
+        el.textContent = message;
+        el.classList.remove("hidden", "text-red-500", "text-red-400", "text-green-400", "text-green-600");
+        el.classList.add(type === "error" ? "text-red-400" : "text-green-400");
+      };
+
+      const hideMessage = (el) => {
+        el.classList.add("hidden");
+        el.textContent = "";
+      };
+
+      const resetCreateForm = () => {
+        createForm.reset();
+        hideMessage(createMessage);
+      };
+
+      const detachCompaniesListener = () => {
+        if (companiesRef) {
+          companiesRef.off();
+          companiesRef = null;
+        }
+      };
+
+      const renderCompanies = (snapshot) => {
+        companyList.innerHTML = "";
+        const companies = snapshot.val() || {};
+        const names = Object.keys(companies);
+        companyCount.textContent = names.length ? `${names.length} empresas` : "";
+
+        if (!names.length) {
+          companiesEmpty.classList.remove("hidden");
+          return;
+        }
+
+        companiesEmpty.classList.add("hidden");
+        names.sort((a, b) => a.localeCompare(b));
+        names.forEach((name) => {
+          const config = companies[name]?.config || {};
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="px-4 py-3 font-medium text-slate-100">${name}</td>
+            <td class="px-4 py-3 text-slate-300">${config.adminEmail || "-"}</td>
+            <td class="px-4 py-3">
+              <div class="flex gap-3 text-sm">
+                <button
+                  class="text-slate-100 hover:text-white underline"
+                  data-action="edit"
+                  data-company="${name}"
+                >Editar</button>
+                <button
+                  class="text-slate-300 hover:text-white underline"
+                  data-action="delete"
+                  data-company="${name}"
+                >Eliminar</button>
+              </div>
+            </td>`;
+          companyList.appendChild(tr);
+        });
+      };
+
+      const openEditModal = (companyName, data) => {
+        currentEditCompany = companyName;
+        editCompanyNameLabel.textContent = companyName;
+        editAdminEmail.value = data?.config?.adminEmail || "";
+        editHotelName.value = data?.config?.hotelName || companyName;
+        hideMessage(editMessage);
+        setVisible(editModal, true);
+      };
+
+      const closeEditModal = () => {
+        currentEditCompany = null;
+        editForm.reset();
+        setVisible(editModal, false);
+      };
+
+      const provider = new firebase.auth.GoogleAuthProvider();
+
+      loginButton.addEventListener("click", () => {
+        hideMessage(loginError);
+        auth.signInWithPopup(provider).catch((error) => {
+          showMessage(loginError, error.message, "error");
+        });
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        auth.signOut();
+      });
+
+      unauthorizedLogoutBtn.addEventListener("click", () => {
+        auth.signOut();
+      });
+
+      createForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        hideMessage(createMessage);
+        const companyRaw = document.getElementById("company-name").value.trim();
+        const adminEmail = document.getElementById("admin-email").value.trim();
+        const adminPassword = document.getElementById("admin-password").value.trim();
+
+        if (!companyRaw || !adminEmail || !adminPassword) {
+          showMessage(createMessage, "Todos los campos son obligatorios.", "error");
+          return;
+        }
+
+        if (invalidKeyChars.test(companyRaw)) {
+          showMessage(
+            createMessage,
+            "El nombre no puede contener ., #, $, [, ]",
+            "error"
+          );
+          return;
+        }
+
+        const companyKey = companyRaw;
+        const updates = {};
+        updates[`empresas/${companyKey}/config/adminEmail`] = adminEmail;
+        updates[`empresas/${companyKey}/config/hotelName`] = companyRaw;
+        updates[`empresas/${companyKey}/bots`] = {};
+
+        secondaryAuth
+          .createUserWithEmailAndPassword(adminEmail, adminPassword)
+          .then(() => db.ref().update(updates))
+          .then(() => {
+            showMessage(createMessage, `Empresa ${companyKey} creada con éxito.`);
+            createForm.reset();
+          })
+          .catch((error) => {
+            showMessage(createMessage, error.message, "error");
+          })
+          .finally(() => {
+            secondaryAuth.signOut().catch(() => {});
+          });
+      });
+
+      companyList.addEventListener("click", (event) => {
+        const action = event.target.dataset.action;
+        const company = event.target.dataset.company;
+        if (!action || !company) return;
+
+        db.ref(`empresas/${company}`)
+          .once("value")
+          .then((snapshot) => {
+            const data = snapshot.val();
+            if (action === "edit") {
+              openEditModal(company, data);
+            } else if (action === "delete") {
+              const confirmed = window.confirm(
+                `¿Eliminar empresa ${company}? Esto no se puede deshacer.`
+              );
+              if (!confirmed) return;
+              snapshot.ref
+                .remove()
+                .catch((error) => alert(`Error al eliminar: ${error.message}`));
+            }
+          });
+      });
+
+      editForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (!currentEditCompany) return;
+        hideMessage(editMessage);
+
+        const adminEmailUpdated = editAdminEmail.value.trim();
+        const hotelNameUpdated = editHotelName.value.trim();
+
+        if (!adminEmailUpdated || !hotelNameUpdated) {
+          showMessage(editMessage, "Todos los campos son obligatorios.", "error");
+          return;
+        }
+
+        const updates = {
+          adminEmail: adminEmailUpdated,
+          hotelName: hotelNameUpdated,
+        };
+
+        db.ref(`empresas/${currentEditCompany}/config`)
+          .update(updates)
+          .then(() => {
+            showMessage(editMessage, "Cambios guardados correctamente.");
+            setTimeout(closeEditModal, 1200);
+          })
+          .catch((error) => {
+            showMessage(editMessage, error.message, "error");
+          });
+      });
+
+      [closeEditBtn, cancelEditBtn].forEach((btn) =>
+        btn.addEventListener("click", () => {
+          closeEditModal();
+        })
+      );
+
+      auth.onAuthStateChanged((user) => {
+        hideMessage(loginError);
+        if (!user) {
+          detachCompaniesListener();
+          setVisible(dashboard, false);
+          setVisible(unauthorizedCard, false);
+          setVisible(loginCard, true);
+          setVisible(loader, false);
+          return;
+        }
+
+        setVisible(loader, true);
+        setVisible(loginCard, false);
+        setVisible(unauthorizedCard, false);
+        db.ref(`globalAdmins/${user.uid}`)
+          .once("value")
+          .then((snapshot) => {
+            const isAdmin = snapshot.val() === true;
+            if (isAdmin) {
+              setVisible(loginCard, false);
+              setVisible(loader, false);
+              setVisible(dashboard, true);
+              companiesRef = db.ref("empresas");
+              companiesRef.on("value", renderCompanies);
+            } else {
+              detachCompaniesListener();
+              unauthorizedMessage.textContent =
+                "Tu cuenta no tiene permisos para acceder a este panel.";
+              hideMessage(loginError);
+              setVisible(loader, false);
+              setVisible(dashboard, false);
+              setVisible(unauthorizedCard, true);
+            }
+          })
+          .catch((error) => {
+            showMessage(loginError, error.message, "error");
+            setVisible(loader, false);
+            setVisible(dashboard, false);
+            setVisible(unauthorizedCard, false);
+            setVisible(loginCard, true);
+          });
+      });
+    </script>
+  </body>
+</html>

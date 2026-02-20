@@ -1,0 +1,53 @@
+.sidebar-btn{display:flex;gap:10px;align-items:center;width:100%;padding:.65rem .8rem;border-radius:12px}
+.sidebar-btn.active{background:#111;color:#fff}
+/* === Sidebar buttons === */
+.sidebar-btn {
+  color: #777 !important; /* gris suave para las no activas */
+  transition: all 0.2s ease;
+}
+.sidebar-btn i {
+  color: #777 !important;
+  transition: color 0.2s ease;
+}
+/* Activa */
+.sidebar-btn.active {
+  background: none !important;
+  color: #000 !important; /* texto negro */
+  font-weight: 500;
+}
+.sidebar-btn.active i {
+  color: #000 !important; /* ícono negro */
+}
+/* Hover */
+.sidebar-btn:hover {
+  background: #f5f5f5 !important;
+  color: #111 !important;
+}
+.sidebar-btn:hover i {
+  color: #111 !important;
+}
+aside {
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+aside::-webkit-scrollbar {
+  width: 6px;
+}
+aside::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 10px;
+}
+/* === Botón Cerrar Sesión (mismo estilo que Save) === */
+#btnLogout {
+  background: linear-gradient(to bottom, #f7f7f7, #eaeaea) !important;
+  color: #111 !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  font-weight: 400;
+}
+#btnLogout:hover {
+  background: linear-gradient(to bottom, #ececec, #dddddd) !important;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+}

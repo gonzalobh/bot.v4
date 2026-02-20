@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="122" height="72.474" viewBox="0 0 122 72.474">
+  <defs>
+    <clipPath id="clip-path">
+      <rect id="Rectángulo_1755" data-name="Rectángulo 1755" width="122" height="60" rx="17" transform="translate(5055 13800)" fill="#f3f3f3"/>
+    </clipPath>
+  </defs>
+  <g id="Grupo_5108" data-name="Grupo 5108" transform="translate(-5055 -13800)">
+    <g id="Grupo_5106" data-name="Grupo 5106">
+      <rect id="Rectángulo_1746" data-name="Rectángulo 1746" width="122" height="60" rx="17" transform="translate(5055 13800)" fill="#f3f3f3"/>
+      <path id="Trazado_39983" data-name="Trazado 39983" d="M5078.75,13857.6s2.5,9.437-1.421,14.87c8.167-.868,16.215-13.6,16.215-13.6" fill="#f3f3f3"/>
+    </g>
+    <rect id="Rectángulo_1747" data-name="Rectángulo 1747" width="30" height="30" rx="6" transform="translate(5072 13810)" fill="#ccc"/>
+    <rect id="Rectángulo_1751" data-name="Rectángulo 1751" width="30" height="30" rx="6" transform="translate(5112 13810)" fill="#ccc"/>
+    <g id="Enmascarar_grupo_194" data-name="Enmascarar grupo 194" clip-path="url(#clip-path)">
+      <g id="Grupo_5109" data-name="Grupo 5109" transform="translate(2)">
+        <rect id="Rectángulo_1753" data-name="Rectángulo 1753" width="30" height="30" rx="6" transform="translate(5150 13810)" fill="#ccc"/>
+        <rect id="Rectángulo_1759" data-name="Rectángulo 1759" width="30" height="6.986" rx="3" transform="translate(5150 13845.007)" fill="#ccc"/>
+      </g>
+    </g>
+    <rect id="Rectángulo_1757" data-name="Rectángulo 1757" width="30" height="6.986" rx="3" transform="translate(5072 13845.007)" fill="#ccc"/>
+    <rect id="Rectángulo_1758" data-name="Rectángulo 1758" width="30" height="6.986" rx="3" transform="translate(5112 13845.007)" fill="#ccc"/>
+    <path id="Icon_awesome-mouse-pointer" data-name="Icon awesome-mouse-pointer" d="M9.51,10.358H6.172l1.757,4.28a.585.585,0,0,1-.3.755l-1.547.674a.557.557,0,0,1-.734-.306L3.68,11.7.953,14.5A.557.557,0,0,1,0,14.1V.576a.557.557,0,0,1,.953-.4L9.9,9.378A.577.577,0,0,1,9.51,10.358Z" transform="translate(5127 13848.5)"/>
+  </g>
+</svg>
