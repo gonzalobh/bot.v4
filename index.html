@@ -1025,6 +1025,23 @@
 
 <!-- KNOWLEDGE TAB -->
           <section id="tab-knowledge" class="hidden space-y-6 max-w-3xl">
+  <!-- Knowledge File Upload -->
+  <div class="knowledge-upload-card">
+    <h3>Documentos del Bot</h3>
+    <p>Sube PDFs, Word o TXT para mejorar las respuestas.</p>
+
+    <input id="knowledgeFileInput"
+           type="file"
+           multiple
+           accept=".pdf,.txt,.doc,.docx" />
+
+    <button id="uploadKnowledgeBtn" class="btn-primary">
+      Subir archivos
+    </button>
+
+    <div id="knowledgeUploadStatus" class="text-sm text-gray-500"></div>
+  </div>
+
   <div class="card p-5 space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="font-semibold flex items-center gap-2">
