@@ -205,3 +205,24 @@
 .ke-area h3:first-child {
   margin-top: 0;
 }
+
+.knowledge-upload-card {
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  background: #fafafa;
+}
+
+.knowledge-upload-card h3 {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.knowledge-upload-card input {
+  margin-top: 10px;
+}
+
+.knowledge-upload-card button {
+  margin-top: 10px;
+}

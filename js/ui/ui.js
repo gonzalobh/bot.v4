@@ -1029,6 +1029,8 @@ return bot;
 let BOT = getBot();
 let BOT_COLLECTION_PATH = null;
 let BOT_LEGACY_PATH = null;
+const PROXY_URL = (window.PROXY_URL || '/api').replace(/\/$/, '');
+const CURRENT = { vectorStoreId: '' };
 let messagesTabInitialized = false;
 let messagesCurrentBot = BOT;
 let messagesSelectedChatId = null;
@@ -2658,6 +2660,10 @@ return `${getConfigBotCollectionPath()}/${botId}`;
 }
 function eref(path) {
 return db.ref(`${getBotBasePath()}/${path}`);
+}
+async function saveBotConfig(payload = {}) {
+if (!payload || typeof payload !== 'object') return;
+await eref('config').update(payload);
 }
 function getBotsRef() {
 if (BOT_COLLECTION_PATH) {
@@ -6262,6 +6268,36 @@ const modalClose = $('closeKnowledgeModal');
 const modalCancel = $('cancelKnowledgeModal');
 const modalConfirm = $('confirmAddKnowledge');
 const modalInput = $('knowledgeUrlInput');
+const uploadBtn = document.getElementById('uploadKnowledgeBtn');
+const fileInput = document.getElementById('knowledgeFileInput');
+const statusBox = document.getElementById('knowledgeUploadStatus');
+if (uploadBtn) {
+uploadBtn.addEventListener('click', async () => {
+const files = fileInput?.files;
+if (!files || !files.length) {
+alert('Selecciona al menos un archivo');
+return;
+}
+if (statusBox) statusBox.innerText = 'Subiendo archivos...';
+for (const file of files) {
+const formData = new FormData();
+formData.append('file', file);
+formData.append('vectorStoreId', CURRENT.vectorStoreId || '');
+const resp = await fetch(`${PROXY_URL}/knowledge/importUrl`, {
+method: 'POST',
+body: formData
+});
+const data = await resp.json();
+if (data.vectorStoreId) {
+CURRENT.vectorStoreId = data.vectorStoreId;
+await saveBotConfig({ vectorStoreId: data.vectorStoreId });
+}
+}
+if (statusBox) statusBox.innerText = 'Archivos indexados correctamente';
+fileInput.value = '';
+});
+}
+
 if (btn) {
   btn.textContent = t('saveButton');
   registerTranslationTarget(btn, 'saveButton');
@@ -6816,6 +6852,9 @@ applyTextareaState();
 (async () => {
 const snap = await pagesRef.once('value');
 pages = parsePages(snap.val());
+const configSnap = await eref('config').once('value');
+const config = configSnap.val() || {};
+CURRENT.vectorStoreId = config.vectorStoreId || '';
 if (!pages.length) {
 const legacySnap = await legacyRef.once('value');
 const legacyText = legacySnap.val();
