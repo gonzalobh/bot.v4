@@ -6,8 +6,6 @@
     return;
   }
 
-  const FIREBASE_DB_URL = "https://timbre-c9547-default-rtdb.europe-west1.firebasedatabase.app";
-
   const AVAILABLE_FONTS = [
     "Manrope",
     "Inter",
@@ -69,8 +67,10 @@
 
   const normalizeOrigin = (value) => {
     if (!value) return "";
+    const raw = value.toString().trim();
+    if (raw === "*") return "*";
     try {
-      const url = new URL(value);
+      const url = new URL(raw);
       return url.origin;
     } catch (err) {
       return "";
@@ -84,101 +84,37 @@
     return [];
   };
 
-  async function fetchChatBubbleConfig(empresa, botId) {
-    const safeEmpresa = encodeURIComponent(empresa || "");
-    const safeBot = encodeURIComponent(botId || "default");
-    const candidatePaths = [
-      `empresas/${safeEmpresa}/config/bots/${safeBot}/config/chatBubble`,
-      `empresas/${safeEmpresa}/bots/${safeBot}/config/chatBubble`,
-      `${safeEmpresa}/bots/${safeBot}/config/chatBubble`
-    ];
+  async function loadBotConfig(empresaId, botId) {
+    const normalizedEmpresaId = (empresaId || "").trim();
+    const normalizedBotId = (botId || "default").trim() || "default";
+    const cacheKey = `bot-config-${normalizedEmpresaId}-${normalizedBotId}`;
 
-    for (const path of candidatePaths) {
-      const url = `${FIREBASE_DB_URL}/${path}.json`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (data && typeof data === "object") return data;
-      } catch (err) {
-        console.warn("No se pudo cargar el chat bubble", err);
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.ts < 86400000) {
+          return parsed.data;
+        }
       }
-    }
+    } catch {}
 
-    return null;
-  }
+    const res = await fetch(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, {
+      cache: "force-cache"
+    });
 
-  async function fetchBaseLanguage(empresa, botId) {
-    const safeEmpresa = encodeURIComponent(empresa || "");
-    const safeBot = encodeURIComponent(botId || "default");
-    const candidatePaths = [
-      `empresas/${safeEmpresa}/config/bots/${safeBot}/config/baseLanguage`,
-      `empresas/${safeEmpresa}/bots/${safeBot}/config/baseLanguage`,
-      `${safeEmpresa}/bots/${safeBot}/config/baseLanguage`
-    ];
+    if (!res.ok) throw new Error("Bot config not found");
 
-    for (const path of candidatePaths) {
-      const url = `${FIREBASE_DB_URL}/${path}.json`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (typeof data === "string" && data.trim()) return data.trim();
-      } catch (err) {
-        console.warn("No se pudo cargar el idioma base del bot", err);
-      }
-    }
+    const data = await res.json();
 
-    return "";
-  }
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data,
+        ts: Date.now()
+      }));
+    } catch {}
 
-  async function fetchFontFamily(empresa, botId) {
-    const safeEmpresa = encodeURIComponent(empresa || "");
-    const safeBot = encodeURIComponent(botId || "default");
-    const candidatePaths = [
-      `empresas/${safeEmpresa}/config/bots/${safeBot}/config/fontFamily`,
-      `empresas/${safeEmpresa}/bots/${safeBot}/config/fontFamily`,
-      `${safeEmpresa}/bots/${safeBot}/config/fontFamily`
-    ];
-
-    for (const path of candidatePaths) {
-      const url = `${FIREBASE_DB_URL}/${path}.json`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (typeof data === "string" && data.trim()) return data.trim();
-      } catch (err) {
-        console.warn("No se pudo cargar la tipografía del widget", err);
-      }
-    }
-
-    return "";
-  }
-
-  async function fetchAllowedOrigins(empresa, botId) {
-    const safeEmpresa = encodeURIComponent(empresa || "");
-    const safeBot = encodeURIComponent(botId || "default");
-    const candidatePaths = [
-      `empresas/${safeEmpresa}/config/bots/${safeBot}/config/allowedUrls`,
-      `empresas/${safeEmpresa}/bots/${safeBot}/config/allowedUrls`,
-      `${safeEmpresa}/bots/${safeBot}/config/allowedUrls`
-    ];
-
-    for (const path of candidatePaths) {
-      const url = `${FIREBASE_DB_URL}/${path}.json`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const origins = toOriginList(data);
-        if (origins.length) return origins;
-      } catch (err) {
-        console.warn("No se pudieron cargar las URLs permitidas", err);
-      }
-    }
-
-    return [];
+    return data;
   }
 
   const main = async () => {
@@ -217,9 +153,10 @@
 
     const pageOrigin = pageUrl?.origin || window.location.origin;
     const externalOrigin = window.location.origin;
-    const allowedOrigins = await fetchAllowedOrigins(empresa, botAttr);
+    const config = await loadBotConfig(empresa, botId);
+    const allowedOrigins = toOriginList(config?.allowedOrigins);
     if (allowedOrigins.length && pageOrigin) {
-      if (!allowedOrigins.includes(pageOrigin)) {
+      if (!allowedOrigins.includes("*") && !allowedOrigins.includes(pageOrigin)) {
         console.warn("El chat está bloqueado para este sitio.", pageOrigin);
         return;
       }
@@ -780,17 +717,17 @@
 
     restoreIconFromSession();
 
-    const [font, chatBubbleConfig, baseLanguage] = await Promise.all([
-      fetchFontFamily(empresa, botId),
-      fetchChatBubbleConfig(empresa, botId),
-      fetchBaseLanguage(empresa, botId)
-    ]);
-    applyFontFamily(font);
-    bubbleConfig = chatBubbleConfig;
-    bubbleBaseLanguage = normalizeLanguage(baseLanguage) || "";
-    if (bubbleConfig?.enabled) {
-      const browserLanguage = getBrowserLanguage();
-      bubbleLanguage = browserLanguage || bubbleLanguage;
+    applyFontFamily(config?.fontFamily);
+    const welcomeText = (config?.welcome || "").toString().trim();
+    if (welcomeText) {
+      bubbleConfig = {
+        enabled: true,
+        text: welcomeText,
+        labels: {},
+        sourceLanguage: ""
+      };
+      bubbleBaseLanguage = "";
+      bubbleLanguage = getBrowserLanguage() || bubbleLanguage;
       updateBubbleTextForLanguage(bubbleLanguage);
     }
 
