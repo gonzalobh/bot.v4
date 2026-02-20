@@ -1,4 +1,5 @@
 export const config = {
+  runtime: "nodejs",
   api: {
     bodyParser: false, // necesario para recibir archivos
   },
@@ -20,9 +21,14 @@ export default async function handler(req, res) {
   try {
     // Parsear archivo recibido
     const form = formidable({ multiples: false });
-    const [fields, files] = await form.parse(req);
+    const { fields, files } = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve({ fields, files });
+      });
+    });
 
-    const file = files.file?.[0];
+    const file = Array.isArray(files.file) ? files.file[0] : files.file;
     const vectorStoreIdFromClient = fields.vectorStoreId?.[0];
 
     if (!file) {
