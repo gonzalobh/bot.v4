@@ -1820,7 +1820,7 @@ async function handleChatOpened() {
    IA: MENSAJERÍA
 ========================= */
 const MESSAGES = []; // {role:'system'|'user'|'assistant', content:string}
-const CURRENT = { avatarUrl: "", hotelName: "", contextInfo: "", personality:"warm" };
+const CURRENT = { avatarUrl: "", hotelName: "", contextInfo: "", personality:"warm", vectorStoreId: "" };
 let CAL_ENABLED = false;
 let CAL_LINK = '';
 let CAL_INIT_DONE = false;
@@ -1949,14 +1949,12 @@ async function askAI(userText) {
 
   Respond to the user in ${languageName}.
 
-  Use the following hotel information to answer the guest accurately:
-
-  ${CURRENT.contextInfo || ""}
   `;
 
   const body = {
     messages: MESSAGES,
-    system: combinedSystem
+    system: combinedSystem,
+    vectorStoreId: CURRENT.vectorStoreId || ""
   };
 
   const res = await fetch(PROXY_URL, {
@@ -2335,6 +2333,11 @@ eref('config/avatarUrl').on('value', s => {
     if (MESSAGES.length > 0 && MESSAGES[0].role === 'system') {
       MESSAGES[0].content = buildSystemPrompt();
     }
+  });
+
+  eref('config/vectorStoreId').on('value', s => {
+    CURRENT.vectorStoreId = s.val() || "";
+    console.log("vectorStoreId cargado:", CURRENT.vectorStoreId);
   });
 
   eref('config/personality').on('value', s => {

@@ -20,6 +20,8 @@ export default async function handler(req, res) {
   try {
     const { fileUrl, filename, vectorStoreId } = await readJson(req);
 
+    let finalVectorStoreId = vectorStoreId || "";
+
     if (!fileUrl) return res.status(400).json({ error: "Missing fileUrl" });
 
     // Descargar archivo desde Firebase
@@ -42,8 +44,26 @@ export default async function handler(req, res) {
     const uploaded = await upload.json();
     console.log("Uploaded to OpenAI:", uploaded.id);
 
+    if (!finalVectorStoreId) {
+      const createdVsResp = await fetch("https://api.openai.com/v1/vector_stores", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.TOMOSBOT}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: "tomosbot-knowledge" }),
+      });
+
+      const createdVs = await createdVsResp.json();
+      if (!createdVsResp.ok || !createdVs?.id) {
+        throw new Error(createdVs?.error?.message || createdVs?.message || "No se pudo crear vector store");
+      }
+      finalVectorStoreId = createdVs.id;
+      console.log("Created vector store:", finalVectorStoreId);
+    }
+
     // Asociar al vector store
-    await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+    await fetch(`https://api.openai.com/v1/vector_stores/${finalVectorStoreId}/files`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.TOMOSBOT}`,
@@ -51,9 +71,9 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({ file_id: uploaded.id }),
     });
-    console.log("Linked to vector store:", vectorStoreId);
+    console.log("Linked to vector store:", finalVectorStoreId);
 
-    return res.json({ ok: true });
+    return res.json({ ok: true, vectorStoreId: finalVectorStoreId });
   } catch (err) {
     console.error("IMPORT ERROR:", err);
     return res.status(500).json({
