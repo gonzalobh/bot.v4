@@ -841,11 +841,11 @@ async function prepareBotPath() {
 
 /* =========================
    IA PROXY
-   - Cambia PROXY_URL a tu endpoint (Vercel, etc.)
-   - También puedes pasar ?proxy=https://tu-endpoint
+   - Por defecto usa el backend same-origin de este proyecto.
+   - También puedes pasar ?proxy=https://tu-endpoint para override.
 ========================= */
 const urlParams = new URLSearchParams(location.search);
-let PROXY_URL = urlParams.get('proxy') || "https://hotel-chat-proxy.vercel.app/api/chat";
+let PROXY_URL = urlParams.get('proxy') || "/api/chat";
 // Espera respuesta JSON: { choices: [ { message: { content: "…" } } ] } (OpenAI-style)
 
 /* =========================
@@ -1948,6 +1948,7 @@ async function askAI(userText) {
   ${SYSTEM_PROMPT || ""}
 
   Respond to the user in ${languageName}.
+  If a knowledge base is configured, use it to ground your answer.
 
   `;
 
@@ -1957,13 +1958,32 @@ async function askAI(userText) {
     vectorStoreId: CURRENT.vectorStoreId || ""
   };
 
+  console.log("Enviando a proxy:", PROXY_URL, "vectorStoreId:", CURRENT.vectorStoreId);
+
   const res = await fetch(PROXY_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
 
-  if (!res.ok) throw new Error("IA request failed: " + res.status);
+  if (!res.ok) {
+    let errorPayload = null;
+    try {
+      errorPayload = await res.clone().json();
+    } catch (_) {
+      try {
+        errorPayload = await res.text();
+      } catch (__){
+        errorPayload = null;
+      }
+    }
+    console.error("Error del proxy:", {
+      status: res.status,
+      statusText: res.statusText,
+      payload: errorPayload
+    });
+    throw new Error("IA request failed: " + res.status);
+  }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || "";
 }
