@@ -3,7 +3,12 @@ export const config = { runtime: "nodejs" };
 async function readJson(req) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  const raw = Buffer.concat(chunks).toString("utf8") || "{}";
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 function cors(res) {
@@ -12,60 +17,57 @@ function cors(res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
-async function apiFetch(url, options = {}) {
+async function openAiDelete(url, options = {}) {
   const resp = await fetch(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${process.env.TOMOSBOT}`,
+      "OpenAI-Beta": "assistants=v2",
       ...(options.headers || {}),
     },
   });
 
   const payload = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    const message = payload?.error?.message || payload?.message || `OpenAI request failed (${resp.status})`;
-    throw new Error(message);
-  }
-
-  return payload;
+  return { ok: resp.ok, status: resp.status, payload };
 }
 
 export default async function handler(req, res) {
   cors(res);
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
+  if (req.method === "OPTIONS") return res.status(200).json({ ok: true });
+  if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Método no permitido" });
 
   try {
-    const { filename, vectorStoreId } = await readJson(req);
+    const body = await readJson(req);
+    if (!body) return res.status(400).json({ ok: false, error: "Invalid JSON body" });
 
-    if (!filename) return res.status(400).json({ error: "Missing filename" });
-    if (!vectorStoreId) return res.status(400).json({ error: "Missing vectorStoreId" });
+    const { openaiFileId, vectorStoreId } = body;
 
-    const filesList = await apiFetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`);
-    const files = Array.isArray(filesList?.data) ? filesList.data : [];
+    if (!openaiFileId) return res.status(400).json({ ok: false, error: "Missing openaiFileId" });
 
-    let matchedFile = null;
-
-    for (const fileEntry of files) {
-      if (!fileEntry?.id || !fileEntry?.file_id) continue;
-      const fileData = await apiFetch(`https://api.openai.com/v1/files/${fileEntry.file_id}`);
-      if (fileData?.filename === filename) {
-        matchedFile = { vectorStoreFileId: fileEntry.id, fileId: fileEntry.file_id };
-        break;
-      }
+    let detach = { ok: true, skipped: true };
+    if (vectorStoreId) {
+      detach = await openAiDelete(
+        `https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${openaiFileId}`,
+        { method: "DELETE" }
+      );
     }
 
-    if (!matchedFile?.fileId) {
-      return res.json({ ok: true, removed: false, message: "File not found in vector store" });
-    }
+    const removeFile = await openAiDelete(`https://api.openai.com/v1/files/${openaiFileId}`, {
+      method: "DELETE",
+    });
 
-    await apiFetch(`https://api.openai.com/v1/files/${matchedFile.fileId}`, { method: "DELETE" });
-    await apiFetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${matchedFile.vectorStoreFileId}`, { method: "DELETE" });
+    const ok = (!!detach.ok || !!detach.skipped) && removeFile.ok;
 
-    return res.json({ ok: true, removed: true, fileId: matchedFile.fileId });
+    return res.status(ok ? 200 : 207).json({
+      ok,
+      openaiFileId,
+      detach,
+      removeFile,
+    });
   } catch (err) {
     console.error("KNOWLEDGE DELETE ERROR:", err);
     return res.status(500).json({
+      ok: false,
       error: "Delete failed",
       message: err?.message || "Unknown error",
     });
