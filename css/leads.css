@@ -1,0 +1,6 @@
+td .acciones {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* o space-between si quieres separarlos */
+  gap: 10px; /* ajusta la separación entre íconos */
+}

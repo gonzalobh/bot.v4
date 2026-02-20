@@ -1,0 +1,8 @@
+#tab-knowledge,
+#tab-respuestas,
+#tab-prompt {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  max-width: 800px; /* puedes ajustar a 900 o 1000 si quieres más ancho */
+}

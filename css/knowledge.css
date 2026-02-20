@@ -1,0 +1,207 @@
+/* === Knowledge page buttons === */
+.page-btn {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 110px;
+  min-height: 86px;
+  background: #ffffff;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+.page-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  border-color: #d1d5db;
+}
+.page-btn:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+.page-btn .page-btn-icon {
+  width: 24px;
+  height: 24px;
+  color: currentColor;
+  stroke-width: 1.8;
+}
+.page-btn .page-btn-label {
+  color: inherit;
+  font-size: 14px;
+}
+.page-btn.active {
+  border-color: #111111;
+  color: #111111;
+  box-shadow: 0 12px 30px rgba(17, 17, 17, 0.15);
+}
+
+
+#saveContext {
+  background-color: #000000;
+  color: #ffffff;
+}
+#saveContext:hover {
+  background-color: #111111;
+}
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.chip-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.chip-label {
+  display: inline-block;
+}
+
+
+.knowledge-editor {
+  position: relative;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.knowledge-editor-delete {
+  position: absolute;
+  top: -40px;
+  right: 8px;
+  z-index: 2;
+}
+
+.rt-toolbar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#fff;
+  margin: 2px 0 6px;
+}
+
+.rt-group{
+  display:flex;
+  gap:4px;
+  padding:4px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  background:#f9fafb;
+}
+
+.rt-sep{
+  width:1px;
+  height:28px;
+  background:#e5e7eb;
+}
+
+.rt-btn{
+  width:36px;
+  height:32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid transparent;
+  background:transparent;
+  border-radius:10px;
+  cursor:pointer;
+  color:#111827;              /* icono en negro */
+  transition: background .15s ease, border-color .15s ease, transform .05s ease;
+}
+
+.rt-btn svg{
+  width:16px;
+  height:16px;
+}
+
+.rt-btn:hover{
+  background:#fff;
+  border-color:#d1d5db;
+}
+
+.rt-btn:active{
+  transform: translateY(1px);
+}
+
+.rt-btn:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(17,24,39,.15);
+}
+
+/* Activo (toggle ON) */
+.rt-btn.is-active,
+.rt-btn[aria-pressed="true"]{
+  background:#111827;
+  border-color:#111827;
+  color:#fff;                /* icono en blanco */
+}
+
+.rt-btn:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+}
+
+.ke-area {
+  min-height: 160px;
+  padding: 10px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ke-area:empty:before {
+  content: attr(data-placeholder);
+  color: #999;
+}
+
+/* === FIX: mostrar bullets y títulos dentro del editor (Tailwind preflight los neutraliza) === */
+.ke-area ul {
+  list-style: disc;
+  list-style-position: outside;
+  padding-left: 1.25rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.ke-area ol {
+  list-style: decimal;
+  list-style-position: outside;
+  padding-left: 1.25rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.ke-area li {
+  margin: 0.15rem 0;
+}
+
+.ke-area h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0.65rem 0 0.25rem;
+}
+
+.ke-area h3:first-child {
+  margin-top: 0;
+}

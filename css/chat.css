@@ -1,0 +1,38 @@
+.iphone{ position:relative; width:320px; height:640px; border-radius:34px; background:#000; padding:0px; box-shadow:0 30px 60px rgba(0,0,0,.25); transform:scale(.7); transform-origin:top center;}
+.iphone-in{ width:100%; height:100%; border-radius:26px; overflow:hidden; background:white}
+.notch{ position:absolute;left:50%;top:0;transform:translateX(-50%); width:160px;height:22px;background:#000;border-bottom-left-radius:16px;border-bottom-right-radius:16px}
+.chat-panel-tab{flex:1 1 auto;text-align:center; border-bottom: 2px solid #4b546200;padding:0.55rem 0.8rem;border-radius:0px;font-size:14px;font-weight:500;color:#4b5563;display:flex;align-items:center;justify-content:center;gap:0.5rem}
+.chat-panel-tab:hover{color:#111;}
+.chat-panel-tab.active{background: #f3f4f600; border-bottom: 2px solid; border-radius: 0px;}
+.chat-columns{align-items:stretch;}
+.chat-columns > .chat-column{height:640px;}
+.chat-column-secondary{background:#fff;border-radius:26px;padding:24px;box-shadow:0 10px 24px rgba(15,23,42,.08);border:1px solid rgba(15,23,42,.08);}
+.appearance-chip{min-width:94px;justify-content:center;font-weight:500}
+.personality-option{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border-radius:12px;background:transparent;color:#374151;font-size:14px;font-weight:500;transition:all .2s ease;text-align:left}
+.personality-option:hover{background:#f3f4f6;color:#111}
+.personality-option-icon{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;background:#f3f4f6;color:#4b5563;flex-shrink:0}
+.personality-option-label{flex:1;display:flex;align-items:center}
+.personality-option-check{opacity:0;transition:opacity .2s ease;color:#10b981}
+.personality-option-active{background:#eef2ff;color:#111;font-weight:600}
+.personality-option-active .personality-option-icon{background:#e0e7ff;color:#1f2937}
+.personality-option-active .personality-option-check{opacity:1}
+.personality-dropdown-button{width:100%;border:1px solid #e5e7eb;border-radius:12px;padding:10px 14px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 8px 18px rgba(15,23,42,.04);transition:all .2s ease;color:#1f2937}
+.personality-dropdown-button:hover{border-color:#d1d5db;box-shadow:0 10px 24px rgba(15,23,42,.08)}
+.personality-dropdown-button:focus{outline:none;box-shadow:0 0 0 3px rgba(17,17,17,.08)}
+.personality-dropdown-label{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.personality-dropdown-menu{position:absolute;left:0;right:0;margin-top:8px;padding:8px;border-radius:14px;border:1px solid #e5e7eb;background:#fff;box-shadow:0 18px 38px rgba(15,23,42,.12);z-index:40;display:flex;flex-direction:column;gap:4px}
+@media (max-width: 1023px) {
+  .chat-columns > .chat-column {
+    height: auto;
+  }
+  .iphone {
+    max-width: 100%;
+    margin-inline: auto;
+    transform: scale(.9);
+  }
+}
+@media (max-width: 767px) {
+  .iphone {
+    transform: scale(.85);
+  }
+}
