@@ -23,6 +23,8 @@ export default async function handler(req, res) {
     if (!fileUrl) return res.status(400).json({ error: "Missing fileUrl" });
 
     // Descargar archivo desde Firebase
+    console.log("Importing file:", filename);
+    console.log("URL:", fileUrl);
     const fileResp = await fetch(fileUrl);
     const buffer = await fileResp.arrayBuffer();
 
@@ -38,6 +40,7 @@ export default async function handler(req, res) {
     });
 
     const uploaded = await upload.json();
+    console.log("Uploaded to OpenAI:", uploaded.id);
 
     // Asociar al vector store
     await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
@@ -48,10 +51,14 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({ file_id: uploaded.id }),
     });
+    console.log("Linked to vector store:", vectorStoreId);
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Import failed" });
+    console.error("IMPORT ERROR:", err);
+    return res.status(500).json({
+      error: "Import failed",
+      message: err.message,
+    });
   }
 }

@@ -6271,6 +6271,8 @@ const modalInput = $('knowledgeUrlInput');
 const uploadBtn = document.getElementById('uploadKnowledgeBtn');
 const fileInput = document.getElementById('knowledgeFileInput');
 const statusBox = document.getElementById('knowledgeUploadStatus');
+const MAX_SIZE_MB = 10;
+const ALLOWED_KNOWLEDGE_EXTENSIONS = ['pdf', 'txt', 'doc', 'docx'];
 const uploadKnowledgeFile = async (file) => {
 const storageRef = storage.ref(`knowledge/${Date.now()}-${file.name}`);
 await storageRef.put(file);
@@ -6287,10 +6289,19 @@ return;
 }
 
 try {
-if (statusBox) statusBox.innerText = 'Subiendo archivos...';
 for (const file of files) {
+if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+throw new Error('Archivo demasiado grande (máx 10MB)');
+}
+
+const ext = file.name.split('.').pop()?.toLowerCase();
+if (!ext || !ALLOWED_KNOWLEDGE_EXTENSIONS.includes(ext)) {
+throw new Error('Tipo de archivo no permitido');
+}
+
+if (statusBox) statusBox.innerText = `Subiendo ${file.name}...`;
 const fileUrl = await uploadKnowledgeFile(file);
-await fetch(`${PROXY_URL}/knowledge/importUrl`, {
+const importResp = await fetch(`${PROXY_URL}/knowledge/importUrl`, {
 method: 'POST',
 headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
@@ -6299,12 +6310,18 @@ filename: file.name,
 vectorStoreId: CURRENT.vectorStoreId
 })
 });
+
+if (!importResp.ok) {
+const payload = await importResp.json().catch(() => ({}));
+throw new Error(payload?.message || payload?.error || 'Error indexando archivo');
 }
-if (statusBox) statusBox.innerText = 'Archivos indexados correctamente';
+
+if (statusBox) statusBox.innerText = `Indexado: ${file.name}`;
+}
 fileInput.value = '';
 } catch (err) {
 console.error('Knowledge upload failed:', err);
-if (statusBox) statusBox.innerText = 'Error subiendo archivos';
+if (statusBox) statusBox.innerText = err?.message || 'Error subiendo archivos';
 }
 });
 }
