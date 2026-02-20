@@ -6271,6 +6271,13 @@ const modalInput = $('knowledgeUrlInput');
 const uploadBtn = document.getElementById('uploadKnowledgeBtn');
 const fileInput = document.getElementById('knowledgeFileInput');
 const statusBox = document.getElementById('knowledgeUploadStatus');
+const uploadKnowledgeFile = async (file) => {
+const storageRef = storage.ref(`knowledge/${Date.now()}-${file.name}`);
+await storageRef.put(file);
+const url = await storageRef.getDownloadURL();
+return url;
+};
+
 if (uploadBtn) {
 uploadBtn.addEventListener('click', async () => {
 const files = fileInput?.files;
@@ -6278,23 +6285,27 @@ if (!files || !files.length) {
 alert('Selecciona al menos un archivo');
 return;
 }
+
+try {
 if (statusBox) statusBox.innerText = 'Subiendo archivos...';
 for (const file of files) {
-const formData = new FormData();
-formData.append('file', file);
-formData.append('vectorStoreId', CURRENT.vectorStoreId || '');
-const resp = await fetch(`${PROXY_URL}/knowledge/importUrl`, {
+const fileUrl = await uploadKnowledgeFile(file);
+await fetch(`${PROXY_URL}/knowledge/importUrl`, {
 method: 'POST',
-body: formData
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+fileUrl,
+filename: file.name,
+vectorStoreId: CURRENT.vectorStoreId
+})
 });
-const data = await resp.json();
-if (data.vectorStoreId) {
-CURRENT.vectorStoreId = data.vectorStoreId;
-await saveBotConfig({ vectorStoreId: data.vectorStoreId });
-}
 }
 if (statusBox) statusBox.innerText = 'Archivos indexados correctamente';
 fileInput.value = '';
+} catch (err) {
+console.error('Knowledge upload failed:', err);
+if (statusBox) statusBox.innerText = 'Error subiendo archivos';
+}
 });
 }
 
