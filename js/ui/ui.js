@@ -6316,6 +6316,13 @@ const payload = await importResp.json().catch(() => ({}));
 throw new Error(payload?.message || payload?.error || 'Error indexando archivo');
 }
 
+const data = await importResp.json();
+if (data.vectorStoreId) {
+console.log('Guardando vectorStoreId:', data.vectorStoreId);
+await eref('config/vectorStoreId').set(data.vectorStoreId);
+CURRENT.vectorStoreId = data.vectorStoreId;
+}
+
 if (statusBox) statusBox.innerText = `Indexado: ${file.name}`;
 }
 fileInput.value = '';
