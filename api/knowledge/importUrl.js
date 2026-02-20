@@ -1,109 +1,57 @@
-export const config = {
-  runtime: "nodejs",
-  api: {
-    bodyParser: false, // necesario para recibir archivos
-  },
-};
+export const config = { runtime: "nodejs" };
 
-import formidable from "formidable";
-import fs from "fs";
+async function readJson(req) {
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
 
-export default async function handler(req, res) {
-  // CORS
+function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
 
+export default async function handler(req, res) {
+  cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Método no permitido" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Método no permitido" });
 
   try {
-    // Parsear archivo recibido
-    const form = formidable({ multiples: false });
-    const { fields, files } = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve({ fields, files });
-      });
+    const { fileUrl, filename, vectorStoreId } = await readJson(req);
+
+    if (!fileUrl) return res.status(400).json({ error: "Missing fileUrl" });
+
+    // Descargar archivo desde Firebase
+    const fileResp = await fetch(fileUrl);
+    const buffer = await fileResp.arrayBuffer();
+
+    // Subir a OpenAI Files API
+    const fd = new FormData();
+    fd.append("file", new Blob([buffer]), filename || "document.txt");
+    fd.append("purpose", "assistants");
+
+    const upload = await fetch("https://api.openai.com/v1/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.TOMOSBOT}` },
+      body: fd,
     });
 
-    const file = Array.isArray(files.file) ? files.file[0] : files.file;
-    const vectorStoreIdFromClient = fields.vectorStoreId?.[0];
+    const uploaded = await upload.json();
 
-    if (!file) {
-      return res.status(400).json({ error: "No se recibió archivo" });
-    }
-
-    // ==========================================
-    // 1️⃣ Crear vector store si no existe
-    // ==========================================
-    let vectorStoreId = vectorStoreIdFromClient;
-
-    if (!vectorStoreId) {
-      const vsResp = await fetch("https://api.openai.com/v1/vector_stores", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.TOMOSBOT}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: "bot-knowledge",
-        }),
-      });
-
-      const vsData = await vsResp.json();
-      vectorStoreId = vsData.id;
-    }
-
-    // ==========================================
-    // 2️⃣ Subir archivo a OpenAI Files API
-    // ==========================================
-    const fileStream = fs.createReadStream(file.filepath);
-
-    const formData = new FormData();
-    formData.append("file", fileStream, file.originalFilename);
-    formData.append("purpose", "assistants");
-
-    const uploadResp = await fetch("https://api.openai.com/v1/files", {
+    // Asociar al vector store
+    await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.TOMOSBOT}`,
+        Authorization: `Bearer ${process.env.TOMOSBOT}`,
+        "Content-Type": "application/json",
       },
-      body: formData,
+      body: JSON.stringify({ file_id: uploaded.id }),
     });
 
-    const uploadData = await uploadResp.json();
-
-    // ==========================================
-    // 3️⃣ Agregar archivo al vector store (indexa)
-    // ==========================================
-    await fetch(
-      `https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.TOMOSBOT}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          file_id: uploadData.id,
-        }),
-      }
-    );
-
-    // limpiar archivo temporal
-    fs.unlinkSync(file.filepath);
-
-    return res.status(200).json({
-      ok: true,
-      vectorStoreId,
-      fileId: uploadData.id,
-      filename: file.originalFilename,
-    });
-
+    return res.json({ ok: true });
   } catch (err) {
-    console.error("🔥 Upload error:", err);
-    return res.status(500).json({ error: "Error subiendo archivo" });
+    console.error(err);
+    return res.status(500).json({ error: "Import failed" });
   }
 }
