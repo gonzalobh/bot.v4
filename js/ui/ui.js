@@ -4528,6 +4528,9 @@ section.classList.toggle('hidden', !shouldShow);
 if (targetTab === 'dashboard2') {
 loadDashboard2Data();
 }
+if (targetTab === 'knowledge' && typeof window.__loadKnowledgeFiles === 'function') {
+window.__loadKnowledgeFiles();
+}
 if (targetTab === 'chat') {
 if (typeof window.__setDefaultChatPanel === 'function') {
 window.__setDefaultChatPanel();
@@ -6271,6 +6274,7 @@ const modalInput = $('knowledgeUrlInput');
 const uploadBtn = document.getElementById('uploadKnowledgeBtn');
 const fileInput = document.getElementById('knowledgeFileInput');
 const statusBox = document.getElementById('knowledgeUploadStatus');
+const knowledgeListEl = document.getElementById('knowledgeList');
 const MAX_SIZE_MB = 10;
 const ALLOWED_KNOWLEDGE_EXTENSIONS = ['pdf', 'txt', 'doc', 'docx'];
 const uploadKnowledgeFile = async (file) => {
@@ -6279,6 +6283,66 @@ await storageRef.put(file);
 const url = await storageRef.getDownloadURL();
 return url;
 };
+const loadKnowledgeFiles = async () => {
+if (!knowledgeListEl) return;
+try {
+  knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">Cargando documentos...</div></div>';
+  const folderRef = storage.ref('knowledge');
+  const result = await folderRef.listAll();
+
+  knowledgeListEl.innerHTML = '';
+  if (!result.items.length) {
+    knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">No hay documentos subidos.</div></div>';
+    return;
+  }
+
+  for (const itemRef of result.items) {
+    const meta = await itemRef.getMetadata();
+    const row = document.createElement('div');
+    row.className = 'knowledge-item';
+    row.innerHTML = `
+      <div class="knowledge-name">
+        ${meta.name}
+        <small style="opacity:.6">(${Math.round(meta.size / 1024)} KB)</small>
+      </div>
+      <div class="knowledge-actions" title="Eliminar" aria-label="Eliminar">🗑️</div>
+    `;
+
+    row.querySelector('.knowledge-actions')?.addEventListener('click', async () => {
+      if (!confirm('Eliminar este documento del bot?')) return;
+      try {
+        await removeKnowledgeFile(itemRef);
+        await loadKnowledgeFiles();
+      } catch (err) {
+        console.error('Knowledge delete failed:', err);
+        alert(err?.message || 'No se pudo eliminar el archivo');
+      }
+    });
+
+    knowledgeListEl.appendChild(row);
+  }
+} catch (err) {
+  console.error('Knowledge list failed:', err);
+  knowledgeListEl.innerHTML = '<div class="knowledge-item"><div class="knowledge-name">Error cargando documentos.</div></div>';
+}
+};
+const removeKnowledgeFile = async (itemRef) => {
+const filename = itemRef.name;
+await itemRef.delete();
+const resp = await fetch(`${PROXY_URL}/knowledge/delete`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    filename,
+    vectorStoreId: CURRENT.vectorStoreId
+  })
+});
+if (!resp.ok) {
+  const payload = await resp.json().catch(() => ({}));
+  throw new Error(payload?.message || payload?.error || 'No se pudo desvincular del vector store');
+}
+};
+window.__loadKnowledgeFiles = loadKnowledgeFiles;
 
 if (uploadBtn) {
 uploadBtn.addEventListener('click', async () => {
@@ -6326,11 +6390,16 @@ CURRENT.vectorStoreId = data.vectorStoreId;
 if (statusBox) statusBox.innerText = `Indexado: ${file.name}`;
 }
 fileInput.value = '';
+await loadKnowledgeFiles();
 } catch (err) {
 console.error('Knowledge upload failed:', err);
 if (statusBox) statusBox.innerText = err?.message || 'Error subiendo archivos';
 }
 });
+}
+
+if (currentActiveTab === 'knowledge') {
+loadKnowledgeFiles();
 }
 
 if (btn) {
