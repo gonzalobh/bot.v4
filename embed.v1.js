@@ -1,8 +1,14 @@
+/**
+ * VERSIONED FILE — DO NOT RENAME.
+ * When changing embed behavior, duplicate to embed.v2.js
+ * Never modify an existing version in-place.
+ */
+
 (() => {
 
-  // 🚫 Evitar que embed.js se ejecute dentro del panel admin o dentro del iframe de preview
+  // 🚫 Evitar que embed.v1.js se ejecute dentro del panel admin o dentro del iframe de preview
   if (window.location.hostname === "tomos.bot") {
-    console.warn("Embed.js deshabilitado dentro del panel admin");
+    console.warn("Embed.v1.js deshabilitado dentro del panel admin");
     return;
   }
 
