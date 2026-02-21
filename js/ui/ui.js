@@ -8084,7 +8084,7 @@ return;
 window.open(`https://cal.com/${link}`, '_blank', 'noopener');
 });
 }
-const scriptAttrs = [`src="https://tomos.bot/embed.js"`, `data-empresa="${EMPRESA}"`];
+const scriptAttrs = [`src="https://tomos.bot/embed.v1.js"`, `data-empresa="${EMPRESA}"`];
 scriptAttrs.push(`data-bot="${BOT}"`);
 const code = `<script ${scriptAttrs.join(' ')}></script>`;
 const box = $('embedScriptBox');
