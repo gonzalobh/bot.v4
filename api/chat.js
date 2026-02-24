@@ -11,31 +11,8 @@ export default async function handler(req, res) {
   // Recibir datos
   const { messages = [], system = "" } = req.body;
 
-  // Tomamos el ÚLTIMO mensaje del usuario
-  const lastUserMessage = messages
-    .slice()
-    .reverse()
-    .find(m => m.role === "user");
-
-  const userText = lastUserMessage?.content || "";
-
-  // 🔵 LOG
-  console.log("🔵 Mensaje del usuario:", userText);
-
-  // 🟢 Nuevo system prompt unificado
-  const systemFinal = `
-${system}
-
-REGLA DE IDIOMA (obligatorio):
-- Detecta automáticamente el idioma del mensaje del usuario.
-- Responde SIEMPRE en el mismo idioma que el mensaje reciente del usuario.
-- Si el usuario cambia de idioma, cambia tú también.
-- Nunca mezcles idiomas.
-- Mantén el estilo, tono y reglas del prompt original del bot.
-
-Mensaje del usuario para detección de idioma:
-"${userText}"
-`;
+  // Use system prompt exactly as received from frontend (cost optimized)
+  const systemFinal = system;
 
   try {
     const upstream = await fetch("https://api.openai.com/v1/chat/completions", {

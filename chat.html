@@ -8,10 +8,9 @@
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-storage-compat.js"></script>
 
   <!-- UI libs -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/tailwind.css">
 <script src="https://unpkg.com/lucide@0.292.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -19,16 +18,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Manrope','system-ui','-apple-system','Segoe UI','Roboto','sans-serif'] },
-          boxShadow: { soft: '0 6px 22px rgba(0,0,0,.08)' }
-        }
-      }
-    }
-  </script>
   <script src="translations.js?v=2334" defer></script>
 
   <style>
@@ -469,6 +458,9 @@ async function loadBotBaseLanguage() {
 }
 
 const CHAT_SESSION_KEY = `chatId:${EMPRESA}:${BOT}`;
+const LAST_ACTIVITY_KEY = `lastActivity:${EMPRESA}:${BOT}`;
+const INACTIVITY_THRESHOLD_MS = 8 * 60 * 60 * 1000; // 8 horas
+
 const getStoredChatId = () => {
   try {
     return localStorage.getItem(CHAT_SESSION_KEY) || '';
@@ -483,7 +475,42 @@ const persistChatId = (id) => {
     console.warn('No se pudo guardar el chatId en localStorage', err);
   }
 };
-let CHAT_ID = getStoredChatId() || `${Date.now()}`;
+const getLastActivityTime = () => {
+  try {
+    return parseInt(localStorage.getItem(LAST_ACTIVITY_KEY) || '0', 10);
+  } catch (err) {
+    return 0;
+  }
+};
+const persistLastActivityTime = (ts) => {
+  try {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(ts));
+  } catch (err) {
+    console.warn('No se pudo guardar la última actividad', err);
+  }
+};
+const isSessionExpiredByInactivity = () => {
+  const last = getLastActivityTime();
+  if (!last) return false; // primera visita — no hay actividad previa, flujo normal
+  return (Date.now() - last) > INACTIVITY_THRESHOLD_MS;
+};
+const startFreshSession = () => {
+  // Crea un nuevo CHAT_ID sin borrar el historial anterior en Firebase
+  const newId = `${Date.now()}`;
+  persistChatId(newId);
+  try {
+    sessionStorage.removeItem(`firstMenuOnce_${EMPRESA}_${BOT}`);
+  } catch (err) { /* silent */ }
+  return newId;
+};
+
+// Si han pasado más de 8h desde la última actividad del usuario → sesión nueva
+let CHAT_ID = (() => {
+  if (isSessionExpiredByInactivity()) {
+    return startFreshSession();
+  }
+  return getStoredChatId() || `${Date.now()}`;
+})();
 persistChatId(CHAT_ID);
 
 let chatLogBaseRef = dbRef(`empresas/${EMPRESA}/bots/${BOT}/conversaciones/${CHAT_ID}`);
@@ -531,6 +558,11 @@ function flagFromCountryCode(code = '') {
 
 async function saveUserLocationToFirebase() {
   if (!chatMetaRef) return;
+  // 💰 FIREBASE COST: si ya guardamos la ubicación en esta sesión, no repetir
+  const sessionKey = `userLocation:${EMPRESA}:${BOT}:${CHAT_ID}`;
+  try {
+    if (sessionStorage.getItem(sessionKey)) return;
+  } catch {}
   try {
     const location = await fetchUserLocation();
     if (!location) return;
@@ -539,6 +571,7 @@ async function saveUserLocationToFirebase() {
       flag: flagFromCountryCode(location.countryCode)
     };
     await chatMetaRef.child('location').set(payload);
+    try { sessionStorage.setItem(sessionKey, '1'); } catch {}
   } catch (err) {
     console.warn('No se pudo guardar la ubicación del usuario', err);
   }
@@ -617,7 +650,8 @@ function loadChatMetaCache() {
   }).catch(err => console.warn('No se pudo cargar la metadata del chat', err));
 }
 
-loadChatMetaCache();
+// 💰 FIREBASE COST: loadChatMetaCache() se llama ahora solo cuando el chat se abre,
+// no al cargar la página. Esto evita lecturas en sesiones donde el usuario nunca abre el chat.
 
 function getChatUserName() {
   const candidates = [
@@ -642,6 +676,11 @@ function stripHtml(html) {
   return tmp.textContent || tmp.innerText || '';
 }
 
+// 💰 FIREBASE COST: debounce en updateChatMeta — en lugar de una escritura por cada
+// mensaje, se agrupa y escribe solo una vez cada 2 segundos.
+let _metaUpdateTimeout = null;
+let _metaPendingUpdate = null;
+
 function updateChatMeta(lastMessage, timestamp) {
   if (!chatMetaRef) return;
   const updates = {
@@ -655,9 +694,18 @@ function updateChatMeta(lastMessage, timestamp) {
   if (!chatMetaCache?.startedAt) {
     updates.startedAt = chatStartedAt;
   }
-  chatMetaRef.update(updates).then(() => {
-    chatMetaCache = { ...(chatMetaCache || {}), ...updates };
-  }).catch(err => console.warn('No se pudo actualizar la metadata del chat', err));
+  // Acumular la actualización más reciente
+  _metaPendingUpdate = updates;
+  if (_metaUpdateTimeout) return; // ya hay uno en cola, se ejecutará pronto
+  _metaUpdateTimeout = setTimeout(() => {
+    _metaUpdateTimeout = null;
+    if (!_metaPendingUpdate) return;
+    const toWrite = _metaPendingUpdate;
+    _metaPendingUpdate = null;
+    chatMetaRef.update(toWrite).then(() => {
+      chatMetaCache = { ...(chatMetaCache || {}), ...toWrite };
+    }).catch(err => console.warn('No se pudo actualizar la metadata del chat', err));
+  }, 2000);
 }
 
 function persistChatPayload(payload) {
@@ -695,6 +743,7 @@ function logChatMessage(sender, text, meta = {}) {
   if (!hasUserSentMessage) {
     if (isUserMessage) {
       hasUserSentMessage = true;
+      persistLastActivityTime(now);
       requestExternalOriginFromParent();
       saveUserLocationToFirebase();
       flushPendingMessages();
@@ -704,6 +753,7 @@ function logChatMessage(sender, text, meta = {}) {
     }
     return;
   }
+  if (isUserMessage) persistLastActivityTime(now);
   persistChatPayload(payload);
 }
 
@@ -804,6 +854,21 @@ try {
 }
 
 async function prepareBotPath() {
+  // 💰 FIREBASE COST: cachear la ruta del bot en localStorage para no repetir
+  // las 2-3 lecturas de detección en cada visita.
+  const cacheKey = `botPath:${EMPRESA}:${BOT}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    if (cached === '__legacy__') {
+      botCollectionPath = null;
+      useLegacyBotPath = true;
+    } else {
+      botCollectionPath = cached;
+      useLegacyBotPath = false;
+    }
+    return;
+  }
+
   const candidates = [
     getDefaultBotCollectionPath(),
     getConfigBotCollectionPath(),
@@ -815,6 +880,7 @@ async function prepareBotPath() {
       await db.ref(`${path}/${BOT}`).once('value');
       botCollectionPath = path;
       useLegacyBotPath = false;
+      try { localStorage.setItem(cacheKey, path); } catch {}
       return;
     } catch (err) {
       if (err?.code === 'PERMISSION_DENIED') {
@@ -829,6 +895,7 @@ async function prepareBotPath() {
     if (legacySnap.exists()) {
       botCollectionPath = null;
       useLegacyBotPath = true;
+      try { localStorage.setItem(cacheKey, '__legacy__'); } catch {}
       return;
     }
   } catch (err) {
@@ -837,6 +904,7 @@ async function prepareBotPath() {
 
   botCollectionPath = getConfigBotCollectionPath();
   useLegacyBotPath = false;
+  try { localStorage.setItem(cacheKey, botCollectionPath); } catch {}
 }
 
 /* =========================
@@ -1042,7 +1110,7 @@ function addTyping(){
   el.dataset.typing = '1';
   el.innerHTML = `
     <img class="avatar-icon" id="__typAva" />
-    <div class="msg flex items-center gap-1">
+    <div class="msg" style="flex-direction:row;align-items:center;gap:6px;padding:12px 14px;">
       <span class="dot"></span>
       <span class="dot"></span>
       <span class="dot"></span>
@@ -1810,6 +1878,8 @@ async function handleChatOpened() {
   isChatOpened = true;
   if (chatOpenInitialized) return;
   chatOpenInitialized = true;
+  // 💰 FIREBASE COST: cargar meta solo cuando el chat se abre (no en page load)
+  loadChatMetaCache();
   const { hasMessages } = await loadChatHistory({ reset: true });
   if (!hasMessages) {
     scheduleWelcome();
@@ -1944,18 +2014,35 @@ async function renderCalInline() {
 
 async function askAI(userText) {
   const languageName = CHAT_LANGUAGE_NAMES[USER_LANGUAGE] || 'English';
+
+  // ---- SMART CONTEXT INJECTION (cost control) ----
+  const CONTEXT_LIMIT = 3;
+  // solo incluir contexto en los primeros mensajes reales del usuario
+  const shouldIncludeContext = MESSAGES.length <= CONTEXT_LIMIT;
+  const contextBlock = shouldIncludeContext
+    ? `Use the following hotel information to answer the guest accurately:\n\n${CURRENT.contextInfo || ""}`
+    : "";
+
   const combinedSystem = `
   ${SYSTEM_PROMPT || ""}
 
   Respond to the user in ${languageName}.
-
-  Use the following hotel information to answer the guest accurately:
-
-  ${CURRENT.contextInfo || ""}
+  ${contextBlock}
   `;
 
+  /* --------------------------------
+  COST CONTROL — LIMIT HISTORY SENT TO OPENAI
+  -------------------------------- */
+
+  const MAX_HISTORY = 10; // mantener entre 8 y 12
+
+  // Tomar solo los últimos mensajes para el modelo
+  const trimmedMessages = Array.isArray(MESSAGES)
+    ? MESSAGES.slice(-MAX_HISTORY)
+    : [];
+
   const body = {
-    messages: MESSAGES,
+    messages: trimmedMessages,
     system: combinedSystem
   };
 
@@ -2121,6 +2208,7 @@ async function resetChatConversation() {
 
   CHAT_ID = `${Date.now()}`;
   persistChatId(CHAT_ID);
+  persistLastActivityTime(0);
   chatLogBaseRef = dbRef(`empresas/${EMPRESA}/bots/${BOT}/conversaciones/${CHAT_ID}`);
   chatMessagesRef = chatLogBaseRef.child('messages');
   chatMetaRef = chatLogBaseRef.child('meta');
@@ -2182,93 +2270,77 @@ function applyPrimaryColor(color){
   document.documentElement.style.setProperty('--chat-primary', color || '#111111');
 }
 function initFirebaseBindings() {
-  // Colores
-  eref('config/chatPrimaryColor').on('value', s => applyPrimaryColor(s.val() || '#111111'));
+  // ─── Lectura única de todos los valores de estilo/configuración visual ───
+  // Estos datos no cambian mientras el usuario está chateando.
+  // Usar .once() en lugar de .on() elimina ~18 listeners permanentes abiertos.
+  eref('config/chatPrimaryColor').once('value', s => applyPrimaryColor(s.val() || '#111111'));
 
-  eref('config/baseLanguage').on('value', s => {
+  eref('config/baseLanguage').once('value', s => {
     const baseLang = normalizeChatLanguage(s.val());
     BOT_BASE_LANGUAGE = baseLang || BOT_BASE_LANGUAGE;
   });
 
-  eref('config/calEnabled').on('value', s => {
+  eref('config/calEnabled').once('value', s => {
     CAL_ENABLED = !!s.val();
   });
 
-  eref('config/calLink').on('value', s => {
+  eref('config/calLink').once('value', s => {
     CAL_LINK = (s.val() || '').trim();
   });
 
-  // 🆕 Fondo del chat
-  eref('config/chatBackgroundColor').on('value', s => {
+  eref('config/chatBackgroundColor').once('value', s => {
     const bg = s.val() || '#ececec';
     const chatWin = document.getElementById('chatWindow');
     if (chatWin) chatWin.style.background = bg;
-
-    // Opcional: también el body si el chat ocupa toda la pantalla
     document.body.style.background = bg;
   });
-  
-// 🟣 Header Background Color
-eref('config/chatHeaderColor').on('value', s => {
-  const h = s.val() || '#ffffff';
-  const chatHeader = document.getElementById('chatHeader');
-  if (chatHeader) chatHeader.style.background = h;
-});
 
-// 🆕 Header visibility toggle
-const applyChatHeaderVisibility = (value) => {
-  const chatHeaderEl = document.getElementById('chatHeader');
-  if (!chatHeaderEl) return;
-  const isVisible = value === false ? false : true;
-  chatHeaderEl.style.display = isVisible ? '' : 'none';
-};
-
-eref('config/chatHeaderVisible').on('value', (s) => {
-  applyChatHeaderVisibility(s.val());
-});
-
-// 🟦 Header Text Color
-eref('config/chatHeaderTextColor').on('value', s => {
-  const c = s.val() || '#1f2937';
-  document.documentElement.style.setProperty('--chat-header-text', c);
-});
-
-// 🟢 Assistant Text Color
-eref('config/chatAssistantTextColor').on('value', s => {
-  const c = s.val() || '#000000';
-  const msgs = document.querySelectorAll('.chat-assistant .msg');
-  msgs.forEach(m => m.style.color = c);
-  // Guarda el color actual para los nuevos mensajes
-  document.documentElement.style.setProperty('--assistant-text', c);
-});
-
-
-// 🟠 Client Text Color
-eref('config/chatClientTextColor').on('value', s => {
-  const c = s.val() || '#ffffff';
-  document.documentElement.style.setProperty('--chat-client-text', c);
-  document.querySelectorAll('.chat-user').forEach(m => { m.style.color = c; });
-});
-
-
-// 🟡 Avatar en tiempo real
-eref('config/avatarUrl').on('value', s => {
-  const url = s.val() || '';
-  CURRENT.avatarUrl = url;
-  // Actualiza avatares visibles
-  document.querySelectorAll('.avatar-icon').forEach(img => {
-    if (url) img.src = url;
+  eref('config/chatHeaderColor').once('value', s => {
+    const h = s.val() || '#ffffff';
+    const chatHeader = document.getElementById('chatHeader');
+    if (chatHeader) chatHeader.style.background = h;
   });
-});
 
+  const applyChatHeaderVisibility = (value) => {
+    const chatHeaderEl = document.getElementById('chatHeader');
+    if (!chatHeaderEl) return;
+    chatHeaderEl.style.display = value === false ? 'none' : '';
+  };
+  eref('config/chatHeaderVisible').once('value', s => {
+    applyChatHeaderVisibility(s.val());
+  });
 
-  // Header hotel name
-  eref('config/hotelName').on('value', s => {
+  eref('config/chatHeaderTextColor').once('value', s => {
+    document.documentElement.style.setProperty('--chat-header-text', s.val() || '#1f2937');
+  });
+
+  eref('config/chatAssistantTextColor').once('value', s => {
+    const c = s.val() || '#000000';
+    document.documentElement.style.setProperty('--assistant-text', c);
+    document.querySelectorAll('.chat-assistant .msg').forEach(m => m.style.color = c);
+  });
+
+  eref('config/chatClientTextColor').once('value', s => {
+    const c = s.val() || '#ffffff';
+    document.documentElement.style.setProperty('--chat-client-text', c);
+    document.querySelectorAll('.chat-user').forEach(m => { m.style.color = c; });
+  });
+
+  // Avatar — leído una sola vez (eliminado listener duplicado)
+  eref('config/avatarUrl').once('value', s => {
+    const url = s.val() || '';
+    CURRENT.avatarUrl = url;
+    document.querySelectorAll('.avatar-icon').forEach(img => {
+      if (url) img.src = url;
+    });
+  });
+
+  eref('config/hotelName').once('value', s => {
     CURRENT.hotelName = s.val() || '';
     if (CURRENT.hotelName) hotelNameEl.textContent = CURRENT.hotelName;
   });
 
-  // Logo + radio
+  // Logo + radio — ambos en paralelo para no esperar uno al otro
   const logoRef = eref('config/logoUrl');
   const radiusRef = eref('config/logoRadius');
   let logoUrl = "";
@@ -2283,12 +2355,10 @@ eref('config/avatarUrl').on('value', s => {
       chatLogo.removeAttribute('src');
     }
   };
-  logoRef.on('value', s => { logoUrl = s.val() || ""; applyLogo(); });
-  radiusRef.on('value', s => { logoRadius = s.val() || 0; applyLogo(); });
-
-  // Avatar
-  eref('config/avatarUrl').on('value', s => {
-    CURRENT.avatarUrl = s.val() || "";
+  Promise.all([logoRef.once('value'), radiusRef.once('value')]).then(([ls, rs]) => {
+    logoUrl = ls.val() || "";
+    logoRadius = rs.val() || 0;
+    applyLogo();
   });
 
   const applyAvatarRadius = (value) => {
@@ -2296,22 +2366,14 @@ eref('config/avatarUrl').on('value', s => {
     const radius = Number.isFinite(numeric) ? Math.min(50, Math.max(0, numeric)) : 50;
     document.documentElement.style.setProperty('--avatar-radius', `${radius}%`);
   };
-
   applyAvatarRadius(50);
-  eref('config/avatarRadius').on('value', s => {
+  eref('config/avatarRadius').once('value', s => {
     applyAvatarRadius(s.val());
   });
 
-  // 🆕 Tipografía dinámica completa
-  eref('config/fontFamily').on('value', s => {
+  eref('config/fontFamily').once('value', s => {
     const f = s.val() || 'Manrope';
-
-    // Lista de fuentes soportadas en Google Fonts
-    const available = [
-      "Manrope", "Inter", "Poppins", "Roboto", "Playfair Display", "Merriweather"
-    ];
-
-    // Solo intentar cargar si está en la lista
+    const available = ["Manrope", "Inter", "Poppins", "Roboto", "Playfair Display", "Merriweather"];
     if (available.includes(f)) {
       const id = `font_${f.replace(/\s+/g, '')}`;
       if (!document.getElementById(id)) {
@@ -2322,42 +2384,32 @@ eref('config/avatarUrl').on('value', s => {
         document.head.appendChild(link);
       }
     }
-
-    // Aplica siempre el font-family (aunque no se haya cargado)
     document.body.style.fontFamily = `'${f}', system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   });
 
-  // 🧠 Context info + personality (con actualización del system prompt)
-  eref('config/contextInfo').on('value', s => {
+  // ─── Listeners permanentes: solo los que REALMENTE necesitan reactividad ───
+  // contextInfo y personality: .once() es suficiente — no cambian mid-session.
+  // 💰 FIREBASE COST: convertidos de .on() a .once() para eliminar conexiones persistentes.
+  eref('config/contextInfo').once('value', s => {
     CURRENT.contextInfo = s.val() || "";
-
-    // 🧩 Si ya existe el mensaje del sistema, actualízalo
-    if (MESSAGES.length > 0 && MESSAGES[0].role === 'system') {
-      MESSAGES[0].content = buildSystemPrompt();
-    }
   });
 
-  eref('config/personality').on('value', s => {
+  eref('config/personality').once('value', s => {
     CURRENT.personality = s.val() || "warm";
-
-    // 🧩 Actualizar también el prompt si cambia la personalidad
-    if (MESSAGES.length > 0 && MESSAGES[0].role === 'system') {
-      MESSAGES[0].content = buildSystemPrompt();
-    }
   });
 
-  // AutoResponses
-  eref('config/autoResponses').on('value', s => { AUTO = s.val() || {}; });
+  // autoResponses y firstMenu: .once() al iniciar. Si el admin los edita mientras
+  // el usuario está chateando, el cambio se verá en la próxima sesión.
+  // Para reactividad en vivo en el panel admin, el admin usa index.html, no chat.html.
+  eref('config/autoResponses').once('value', s => { AUTO = s.val() || {}; });
 
-  // First menu
-  eref('config/firstMenu').on('value', s => {
+  eref('config/firstMenu').once('value', s => {
     FIRST_MENU = normalizeFirstMenu(s.val());
     firstMenuLoaded = true;
     if (initialMenuPending) {
       requestInitialMenu();
     }
   });
-
 }
 
 
@@ -2525,9 +2577,9 @@ function initEmbedIntegration() {
   // Avisar que el chat está listo
   window.parent.postMessage({ action: "chatReady" }, "*");
 
-  // 🔹 Color del botón
+  // 🔹 Color del botón — lectura única al arrancar
   if (typeof eref === "function") {
-    eref("config/chatButtonColor").on("value", (s) => {
+    eref("config/chatButtonColor").once("value", (s) => {
       const color = s.val() || "#111111";
       window.parent.postMessage(
         { action: "updateChatButtonColor", color },
@@ -2538,17 +2590,14 @@ function initEmbedIntegration() {
     const sendWidgetPosition = (pos) => {
       const valid = ["left", "center", "right"];
       const normalizedInput = (pos || "").toString().trim().toLowerCase();
-      const normalized = valid.includes(normalizedInput)
-        ? normalizedInput
-        : "right";
-
+      const normalized = valid.includes(normalizedInput) ? normalizedInput : "right";
       window.parent.postMessage(
         { action: "updateWidgetPosition", position: normalized },
         "*"
       );
     };
 
-    eref("config/widgetPosition").on("value", (s) => {
+    eref("config/widgetPosition").once("value", (s) => {
       sendWidgetPosition(s.val());
     });
   }

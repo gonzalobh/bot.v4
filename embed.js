@@ -99,22 +99,20 @@
       }
     } catch {}
 
-    const res = await fetch(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, {
-      cache: "force-cache"
-    });
-
-    if (!res.ok) throw new Error("Bot config not found");
-
-    const data = await res.json();
-
     try {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data,
-        ts: Date.now()
-      }));
-    } catch {}
+      const res = await fetch(`https://tomos.bot/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ data, ts: Date.now() }));
+        } catch {}
+        return data;
+      }
+    } catch {
+      // CORS, 404 u otro error de red — continuar con valores por defecto
+    }
 
-    return data;
+    return { allowedOrigins: ["*"] };
   }
 
   const main = async () => {

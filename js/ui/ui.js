@@ -4541,6 +4541,28 @@ initPromptTab();
 loadPromptForCurrentBot({ force: true });
 }
 }
+
+// ── Lazy init: cada sección se inicializa la primera vez que el usuario la visita ──
+switch (targetTab) {
+  case 'chat':
+    initIntegration();
+    initChatBubble();
+    initWelcome();
+    initFirstMenu();
+    break;
+  case 'mensajes':
+    initMensajes();
+    break;
+  case 'knowledge':
+    initKnowledge();
+    break;
+  case 'respuestas':
+    initRespuestas();
+    break;
+  case 'leads':
+    initLeadsTab();
+    break;
+}
 }
 function showAppView() {
 document.querySelector('header')?.classList.remove('hidden');
@@ -4866,22 +4888,13 @@ async function initAll(){
   lucide.createIcons();
   await refreshPermissions();
   await initBotSelector();
-  initLanguageSelector(); // <-- 🔥 nuevo
+  initLanguageSelector();
   initTabs();
   initDashboard();
   applyPreview();
   initApariencia();
-  initSettingsTab();
-  initMensajes();
-initLeadsTab();
-initKnowledge();
-initIntegration();
-initRespuestas();
-initFirstMenu();
-initPromptTab();
-initChatBubble();
-initWelcome();
-initSchedule();
+  initSettingsTab(); // Tab "Chat" es visible por defecto — se inicializa siempre
+  // Las demás secciones se inicializan lazy cuando el usuario navega a ellas
 }
 // ====== Apariencia ======
 function initApariencia() {
@@ -6845,171 +6858,6 @@ if (typeof window.__applyKnowledgeWriteState === 'function') {
 window.__applyKnowledgeWriteState();
 }
 })();
-}
-function initSchedule() {
-const ref = eref('config/schedule');
-const list = $('scheduleList');
-const DAYS = [
-{ label: 'M', value: 1, title: 'Monday' },
-{ label: 'T', value: 2, title: 'Tuesday' },
-{ label: 'W', value: 3, title: 'Wednesday' },
-{ label: 'T', value: 4, title: 'Thursday' },
-{ label: 'F', value: 5, title: 'Friday' },
-{ label: 'S', value: 6, title: 'Saturday' },
-{ label: 'S', value: 0, title: 'Sunday' }
-];
-let saveTimer = null;
-let isSaving = false;
-let needsSave = false;
-function scheduleChanged() {
-needsSave = true;
-if (saveTimer) clearTimeout(saveTimer);
-saveTimer = setTimeout(persistSchedule, 600);
-}
-async function persistSchedule() {
-if (isSaving) {
-saveTimer = setTimeout(persistSchedule, 300);
-return;
-}
-if (!needsSave) return;
-needsSave = false;
-saveTimer = null;
-if (!canWriteFlag) return;
-const rows = list.querySelectorAll('[data-id]');
-const out = {};
-rows.forEach(r => {
-const id = r.dataset.id;
-const start = r.querySelector('.start').value;
-const end = r.querySelector('.end').value;
-const days = [...r.querySelectorAll('.day.is-active')].map(d => parseInt(d.dataset.day, 10));
-out[id] = { start, end, days };
-});
-isSaving = true;
-try {
-await canWrite(async () => {
-await ref.set(out);
-toast(t('✔ Changes saved'));
-});
-} finally {
-isSaving = false;
-if (needsSave) {
-persistSchedule();
-}
-}
-}
-function applyDayState(btn, active) {
-btn.classList.toggle('is-active', active);
-btn.classList.toggle('bg-gray-900', active);
-btn.classList.toggle('text-white', active);
-btn.classList.toggle('shadow-sm', active);
-btn.classList.toggle('bg-white', !active);
-btn.classList.toggle('text-gray-500', !active);
-btn.classList.toggle('border', !active);
-btn.classList.toggle('border-gray-300', !active);
-btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-}
-// 🧩 Crear fila de horario con diseño actualizado
-function makeRow(id, start = "07:00", end = "21:00", days = []) {
-const div = document.createElement('div');
-div.className = "rounded-2xl bg-gray-100 p-4 space-y-4";
-div.dataset.id = id;
-div.innerHTML = `
-<div class="flex items-center gap-3">
-<div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow-inner border border-gray-200">
-<i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
-<input type="text" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" maxlength="5"
-placeholder="07:00" class="start text-sm font-normal text-gray-700 border-none outline-none bg-transparent w-16 text-center" value="${start}">
-</div>
-<i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
-<div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow-inner border border-gray-200">
-<i data-lucide="clock" class="w-4 h-4 text-gray-500"></i>
-<input type="text" pattern="^([01]?[0-9]|2[0-3]):[0-5][0-9]$" maxlength="5"
-placeholder="21:00" class="end text-sm font-normal text-gray-700 border-none outline-none bg-transparent w-16 text-center" value="${end}">
-</div>
-<button type="button" class="delete ml-auto text-gray-400 hover:text-red-500 transition" title="${t('Delete period')}">
-<i data-lucide="trash-2" class="w-5 h-5"></i>
-</button>
-</div>
-<div class="flex flex-wrap gap-2">
-${DAYS.map((d) => {
-const active = days.includes(d.value);
-return `<button type="button" data-day="${d.value}" title="${d.title}" class="day ${active ? 'is-active bg-gray-900 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-300'} w-7 h-7 rounded-full text-sm font-medium flex items-center justify-center transition hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-300" aria-pressed="${active ? 'true' : 'false'}">${d.label}</button>`;
-}).join('')}
-</div>
-`;
-const deleteButton = div.querySelector('button.delete');
-if (deleteButton) {
-registerTranslationTarget(deleteButton, 'Delete period', 'title');
-}
-// 🔸 Validar formato HH:mm (24h)
-div.querySelectorAll('input.start, input.end').forEach(inp => {
-inp.addEventListener('blur', e => {
-let val = e.target.value.trim();
-if (!/^\d{1,2}:\d{2}$/.test(val)) {
-e.target.value = "00:00";
-} else {
-let [h, m] = val.split(":").map(Number);
-if (h > 23) h = 23;
-if (m > 59) m = 59;
-e.target.value = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-}
-scheduleChanged();
-});
-});
-// 🔸 Toggle de días activos
-div.querySelectorAll('.day').forEach(btn => {
-applyDayState(btn, btn.classList.contains('is-active'));
-btn.addEventListener('click', () => {
-const nowActive = !btn.classList.contains('is-active');
-applyDayState(btn, nowActive);
-scheduleChanged();
-});
-});
-// 🗑️ Eliminar fila
-div.querySelector('.delete').onclick = () => {
-div.remove();
-renderActionRow();
-scheduleChanged();
-};
-lucide.createIcons();
-return div;
-}
-// 🧩 Renderizar botón "+"
-function renderActionRow() {
-const existing = list.querySelector('#scheduleActions');
-if (existing) existing.remove();
-const actions = document.createElement('div');
-actions.id = 'scheduleActions';
-actions.className = "pt-2";
-const addBtn = document.createElement('button');
-addBtn.type = 'button';
-addBtn.innerHTML = '<i data-lucide="plus" class="w-5 h-5"></i>';
-addBtn.className = "w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center hover:bg-gray-300 transition";
-addBtn.addEventListener('click', () => {
-const newRow = makeRow('r' + Date.now(), "07:00", "21:00", [1, 2, 3, 4, 5]);
-list.appendChild(newRow);
-renderActionRow();
-scheduleChanged();
-});
-actions.appendChild(addBtn);
-list.appendChild(actions);
-lucide.createIcons();
-}
-// 🧩 Cargar desde Firebase
-ref.once('value', s => {
-const data = s.val() || {};
-list.innerHTML = '';
-const keys = Object.keys(data);
-if (!keys.length) {
-list.appendChild(makeRow('r' + Date.now(), "07:00", "21:00", [1, 2, 3, 4, 5]));
-} else {
-keys.forEach(id => {
-const r = data[id];
-list.appendChild(makeRow(id, r.start, r.end, r.days || []));
-});
-}
-renderActionRow();
-});
 }
 function initMensajes() {
 const listEl = $('messagesList');
@@ -9212,65 +9060,272 @@ addButton.classList.toggle("cursor-not-allowed", disabled);
 };
 const renderPreview = () => {
 preview.innerHTML = "";
-const container = document.createElement("div");
-container.className = "flex flex-col gap-2";
+
+// Outer chat-like wrapper
+const chatWrap = document.createElement("div");
+chatWrap.className = "flex flex-col gap-3";
+
+// Bot bubble row
+const botRow = document.createElement("div");
+botRow.className = "flex items-end gap-2";
+
+// Avatar dot
+const avatar = document.createElement("div");
+avatar.className = "w-7 h-7 rounded-full bg-black text-white text-xs flex items-center justify-center shrink-0 mb-0.5 font-bold";
+avatar.textContent = "B";
+
+// Bubble + buttons column
+const bubbleCol = document.createElement("div");
+bubbleCol.className = "flex flex-col gap-2 max-w-xs";
+
 if (state.title) {
-const titlePreview = document.createElement("div");
-titlePreview.className = "text-sm font-semibold text-gray-700";
-titlePreview.textContent = state.title;
-container.appendChild(titlePreview);
-}
-const wrap = document.createElement("div");
-wrap.className = "flex flex-wrap gap-2";
-state.buttons.forEach(btn => {
-if (!btn.label) return;
-const pill = document.createElement("span");
-pill.className = "inline-flex items-center border border-black rounded-full px-3 py-1 text-xs text-black";
-pill.textContent = btn.label;
-wrap.appendChild(pill);
-});
-if (wrap.childElementCount) {
-container.appendChild(wrap);
+  const bubble = document.createElement("div");
+  bubble.className = "bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm text-gray-800 shadow-sm";
+  bubble.textContent = state.title;
+  bubbleCol.appendChild(bubble);
 } else {
-const placeholder = document.createElement("p");
-placeholder.className = "text-xs text-gray-400";
-placeholder.textContent = t("Menu buttons will appear here.");
-registerTranslationTarget(placeholder, "Menu buttons will appear here.");
-container.appendChild(placeholder);
+  const empty = document.createElement("div");
+  empty.className = "bg-white border border-dashed border-gray-300 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm text-gray-400 italic";
+  empty.textContent = t("Bot message will appear here...");
+  registerTranslationTarget(empty, "Bot message will appear here...");
+  bubbleCol.appendChild(empty);
 }
-preview.appendChild(container);
+
+const wrap = document.createElement("div");
+wrap.className = "flex flex-wrap gap-1.5";
+state.buttons.forEach(btn => {
+  if (!btn.label) return;
+  const pill = document.createElement("span");
+  pill.className = "inline-flex items-center bg-white border border-gray-800 hover:bg-gray-50 rounded-full px-3 py-1 text-xs text-gray-800 cursor-pointer shadow-sm transition";
+  pill.textContent = btn.label;
+  wrap.appendChild(pill);
+});
+
+if (wrap.childElementCount) {
+  bubbleCol.appendChild(wrap);
+} else if (state.title) {
+  const hint = document.createElement("p");
+  hint.className = "text-xs text-gray-400 pl-1";
+  hint.textContent = t("Buttons will appear here.");
+  registerTranslationTarget(hint, "Buttons will appear here.");
+  bubbleCol.appendChild(hint);
+}
+
+botRow.appendChild(avatar);
+botRow.appendChild(bubbleCol);
+chatWrap.appendChild(botRow);
+
+// Empty user side spacer hint
+const userHint = document.createElement("div");
+userHint.className = "flex justify-end";
+const userPill = document.createElement("div");
+userPill.className = "text-xs text-gray-400 italic pr-1";
+userPill.textContent = t("← User taps a button to reply");
+registerTranslationTarget(userPill, "← User taps a button to reply");
+userHint.appendChild(userPill);
+chatWrap.appendChild(userHint);
+
+preview.appendChild(chatWrap);
+};
+let dragSrcIndex = null;
+// Track which button indices are expanded
+const expandedButtons = new Set();
+const syncInputsToState = () => {
+  buttonsList.querySelectorAll("input[data-field]").forEach(inp => {
+    const i = Number(inp.dataset.index);
+    if (!isNaN(i) && state.buttons[i]) state.buttons[i][inp.dataset.field] = inp.value;
+  });
 };
 const renderButtons = () => {
 buttonsList.innerHTML = "";
 state.buttons.forEach((btn, index) => {
-const row = document.createElement("div");
-row.className = "rounded-xl border border-gray-200 p-3 space-y-2 bg-white";
-const labelInput = document.createElement("input");
-labelInput.type = "text";
-labelInput.className = "w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/60";
-labelInput.placeholder = "Button label";
-labelInput.value = btn.label || "";
-labelInput.dataset.index = String(index);
-labelInput.dataset.field = "label";
-const messageInput = document.createElement("input");
-messageInput.type = "text";
-messageInput.className = "w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/60";
-messageInput.placeholder = "Message sent to chat";
-messageInput.value = btn.message || "";
-messageInput.dataset.index = String(index);
-messageInput.dataset.field = "message";
-const removeBtn = document.createElement("button");
-removeBtn.type = "button";
-removeBtn.className = "text-xs text-red-600 hover:text-red-700";
-removeBtn.textContent = t("Delete");
-registerTranslationTarget(removeBtn, "Delete");
-removeBtn.addEventListener("click", () => {
-state.buttons.splice(index, 1);
-renderButtons();
-renderPreview();
-});
-row.append(labelInput, messageInput, removeBtn);
-buttonsList.appendChild(row);
+  const isExpanded = expandedButtons.has(index);
+
+  const row = document.createElement("div");
+  row.className = "rounded-xl border border-gray-200 bg-white transition-opacity overflow-hidden";
+  row.draggable = true;
+  row.dataset.index = String(index);
+
+  // --- Drag events ---
+  row.addEventListener("dragstart", (e) => {
+    syncInputsToState();
+    dragSrcIndex = index;
+    row.classList.add("opacity-40");
+    e.dataTransfer.effectAllowed = "move";
+  });
+  row.addEventListener("dragend", () => {
+    row.classList.remove("opacity-40");
+    buttonsList.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over", "border-black", "border-2"));
+  });
+  row.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    buttonsList.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over", "border-black", "border-2"));
+    if (dragSrcIndex !== index) row.classList.add("drag-over", "border-black", "border-2");
+  });
+  row.addEventListener("dragleave", () => {
+    row.classList.remove("drag-over", "border-black", "border-2");
+  });
+  row.addEventListener("drop", (e) => {
+    e.preventDefault();
+    row.classList.remove("drag-over", "border-black", "border-2");
+    if (dragSrcIndex === null || dragSrcIndex === index) return;
+    const moved = state.buttons.splice(dragSrcIndex, 1)[0];
+    // Adjust expanded set for the shift
+    const newExpanded = new Set();
+    expandedButtons.forEach(i => {
+      if (i === dragSrcIndex) { newExpanded.add(index < dragSrcIndex ? index : index - 1); }
+      else if (dragSrcIndex < index) { newExpanded.add(i < dragSrcIndex || i > index ? i : i - 1); }
+      else { newExpanded.add(i < index || i > dragSrcIndex ? i : i + 1); }
+    });
+    expandedButtons.clear();
+    newExpanded.forEach(i => expandedButtons.add(i));
+    state.buttons.splice(index < dragSrcIndex ? index : index, 0, moved);
+    dragSrcIndex = null;
+    renderButtons();
+    renderPreview();
+  });
+
+  // --- Collapsed header row ---
+  const header = document.createElement("div");
+  header.className = "flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none";
+
+  // Drag handle
+  const dragHandle = document.createElement("span");
+  dragHandle.className = "cursor-grab text-gray-300 hover:text-gray-500 shrink-0";
+  dragHandle.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="2"/><circle cx="15" cy="5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="9" cy="19" r="2"/><circle cx="15" cy="19" r="2"/></svg>`;
+  dragHandle.title = "Drag to reorder";
+  // Prevent header click from toggling when dragging handle
+  dragHandle.addEventListener("mousedown", e => e.stopPropagation());
+
+  // Badge
+  const badge = document.createElement("span");
+  badge.className = "w-5 h-5 rounded-full bg-gray-800 text-white text-xs flex items-center justify-center shrink-0 font-semibold";
+  badge.textContent = String(index + 1);
+
+  // Label preview (truncated)
+  const labelPreview = document.createElement("span");
+  labelPreview.className = "text-sm text-gray-700 flex-1 truncate";
+  labelPreview.textContent = btn.label || `Button ${index + 1}`;
+
+  // Up / down arrows
+  const arrowWrap = document.createElement("div");
+  arrowWrap.className = "flex gap-1 shrink-0";
+  if (index > 0) {
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.className = "w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:bg-gray-100 transition";
+    upBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
+    upBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      syncInputsToState();
+      // shift expanded tracking
+      if (expandedButtons.has(index) && !expandedButtons.has(index - 1)) { expandedButtons.delete(index); expandedButtons.add(index - 1); }
+      else if (!expandedButtons.has(index) && expandedButtons.has(index - 1)) { expandedButtons.add(index); expandedButtons.delete(index - 1); }
+      [state.buttons[index - 1], state.buttons[index]] = [state.buttons[index], state.buttons[index - 1]];
+      renderButtons(); renderPreview();
+    });
+    arrowWrap.appendChild(upBtn);
+  }
+  if (index < state.buttons.length - 1) {
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.className = "w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-400 hover:bg-gray-100 transition";
+    downBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+    downBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      syncInputsToState();
+      if (expandedButtons.has(index) && !expandedButtons.has(index + 1)) { expandedButtons.delete(index); expandedButtons.add(index + 1); }
+      else if (!expandedButtons.has(index) && expandedButtons.has(index + 1)) { expandedButtons.add(index); expandedButtons.delete(index + 1); }
+      [state.buttons[index], state.buttons[index + 1]] = [state.buttons[index + 1], state.buttons[index]];
+      renderButtons(); renderPreview();
+    });
+    arrowWrap.appendChild(downBtn);
+  }
+
+  // Chevron toggle
+  const chevron = document.createElement("span");
+  chevron.className = "text-gray-400 shrink-0 transition-transform duration-150 " + (isExpanded ? "rotate-180" : "");
+  chevron.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+  header.appendChild(dragHandle);
+  header.appendChild(badge);
+  header.appendChild(labelPreview);
+  header.appendChild(arrowWrap);
+  header.appendChild(chevron);
+
+  // Toggle expand on header click
+  header.addEventListener("click", () => {
+    syncInputsToState();
+    if (expandedButtons.has(index)) expandedButtons.delete(index);
+    else expandedButtons.add(index);
+    renderButtons();
+  });
+
+  row.appendChild(header);
+
+  // --- Expanded body ---
+  if (isExpanded) {
+    const body = document.createElement("div");
+    body.className = "px-3 pb-3 pt-1 space-y-3 border-t border-gray-100";
+
+    // Label field
+    const labelWrap = document.createElement("div");
+    labelWrap.className = "space-y-1";
+    const labelFieldLabel = document.createElement("label");
+    labelFieldLabel.className = "text-xs font-medium text-gray-500";
+    labelFieldLabel.textContent = t("Button text");
+    const labelInput = document.createElement("input");
+    labelInput.type = "text";
+    labelInput.className = "w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/60";
+    labelInput.placeholder = t("e.g. Check availability");
+    labelInput.value = btn.label || "";
+    labelInput.dataset.index = String(index);
+    labelInput.dataset.field = "label";
+    labelInput.addEventListener("input", () => {
+      state.buttons[index].label = labelInput.value;
+      labelPreview.textContent = labelInput.value || `Button ${index + 1}`;
+      renderPreview();
+    });
+    labelWrap.appendChild(labelFieldLabel);
+    labelWrap.appendChild(labelInput);
+    body.appendChild(labelWrap);
+
+    // Message field
+    const msgWrap = document.createElement("div");
+    msgWrap.className = "space-y-1";
+    const msgFieldLabel = document.createElement("label");
+    msgFieldLabel.className = "text-xs font-medium text-gray-500";
+    msgFieldLabel.textContent = t("Action (sent to chat)");
+    const messageInput = document.createElement("input");
+    messageInput.type = "text";
+    messageInput.className = "w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/60";
+    messageInput.placeholder = t("e.g. I want to check availability");
+    messageInput.value = btn.message || "";
+    messageInput.dataset.index = String(index);
+    messageInput.dataset.field = "message";
+    messageInput.addEventListener("input", () => { state.buttons[index].message = messageInput.value; });
+    msgWrap.appendChild(msgFieldLabel);
+    msgWrap.appendChild(messageInput);
+    body.appendChild(msgWrap);
+
+    // Remove button
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "text-xs text-red-500 hover:text-red-700 flex items-center gap-1 transition pt-1";
+    removeBtn.innerHTML = `<span>✕</span> <span>${t("Remove")}</span>`;
+    registerTranslationTarget(removeBtn.querySelector("span:last-child"), "Remove");
+    removeBtn.addEventListener("click", () => {
+      expandedButtons.delete(index);
+      state.buttons.splice(index, 1);
+      renderButtons();
+      renderPreview();
+    });
+    body.appendChild(removeBtn);
+    row.appendChild(body);
+  }
+
+  buttonsList.appendChild(row);
 });
 updateAddButtonState();
 renderPreview();
@@ -9335,24 +9390,24 @@ descriptionEl.textContent = t("Show the first menu right after the welcome messa
 registerTranslationTarget(descriptionEl, "Show the first menu right after the welcome message.");
 }
 if (titleFieldLabel) {
-titleFieldLabel.textContent = t("Menu title");
-registerTranslationTarget(titleFieldLabel, "Menu title");
+titleFieldLabel.textContent = t("Bot message");
+registerTranslationTarget(titleFieldLabel, "Bot message");
 }
 if (titleInput) {
-titleInput.placeholder = t("Add a title...");
-registerTranslationTarget(titleInput, "Add a title...", "placeholder");
+titleInput.placeholder = t("e.g. How can I help you today?");
+registerTranslationTarget(titleInput, "e.g. How can I help you today?", "placeholder");
 }
 if (buttonsLabel) {
-buttonsLabel.textContent = t("Buttons");
-registerTranslationTarget(buttonsLabel, "Buttons");
+buttonsLabel.textContent = t("Quick reply buttons");
+registerTranslationTarget(buttonsLabel, "Quick reply buttons");
 }
 if (limitHint) {
 limitHint.textContent = t("Maximum 5 buttons.");
 registerTranslationTarget(limitHint, "Maximum 5 buttons.");
 }
 if (previewLabel) {
-previewLabel.textContent = t("Preview");
-registerTranslationTarget(previewLabel, "Preview");
+previewLabel.textContent = t("Chat preview");
+registerTranslationTarget(previewLabel, "Chat preview");
 }
 const addLabel = addButton.querySelector("span:last-child") || addButton;
 if (addLabel) {
@@ -9392,6 +9447,11 @@ if (!Number.isFinite(index)) return;
 const field = target.dataset.field;
 if (!state.buttons[index]) return;
 state.buttons[index][field] = target.value;
+if (field === "label") {
+  // live-update the label preview in the collapsed header without full re-render
+  const preview2 = buttonsList.querySelectorAll("[data-index='" + index + "'] .btn-label-preview");
+  preview2.forEach(el => { el.textContent = target.value || `Button ${index + 1}`; });
+}
 renderPreview();
 });
 titleInput.addEventListener("input", () => {
@@ -9401,7 +9461,9 @@ renderPreview();
 });
 addButton.addEventListener("click", () => {
 if (state.buttons.length >= MAX_BUTTONS) return;
+const newIndex = state.buttons.length;
 state.buttons.push({ label: "", message: "" });
+expandedButtons.add(newIndex);
 renderButtons();
 const inputs = buttonsList.querySelectorAll("input[data-field=\"label\"]");
 const lastInput = inputs[inputs.length - 1];
