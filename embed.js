@@ -1,7 +1,7 @@
 (() => {
 
   // 🚫 Evitar que embed.js se ejecute dentro del panel admin o dentro del iframe de preview
-  if (window.location.hostname === "tomos.bot") {
+  if (window.self !== window.top) {
     console.warn("Embed.js deshabilitado dentro del panel admin");
     return;
   }
@@ -100,7 +100,8 @@
     } catch {}
 
     try {
-      const res = await fetch(`https://tomos.bot/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`);
+      const configUrl = new URL(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, window.location.origin);
+      const res = await fetch(configUrl.toString());
       if (res.ok) {
         const data = await res.json();
         try {
@@ -147,7 +148,9 @@
     const params = new URLSearchParams({ empresa });
     if (botAttr) params.set("bot", botAttr);
     params.set("hideLocation", "1");
-    const iframeSrc = `https://tomos.bot/chat.html?${params.toString()}`;
+    const iframeUrl = new URL("/chat.html", window.location.origin);
+    iframeUrl.search = params.toString();
+    const iframeSrc = iframeUrl.toString();
 
     const pageOrigin = pageUrl?.origin || window.location.origin;
     const externalOrigin = window.location.origin;
@@ -742,7 +745,7 @@
     let externalOriginSent = false;
 
     window.addEventListener("message", (e) => {
-      if (!e.origin.includes("tomos.bot")) return;
+      if (e.origin !== window.location.origin) return;
       const d = e.data || {};
 
       switch (d.action) {

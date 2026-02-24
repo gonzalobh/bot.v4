@@ -530,7 +530,7 @@ const trimmedEmail = (email || '').trim();
 if (!trimmedEmail) return;
 const { sendSignInLinkToEmail } = await loadFirebaseAuthModule();
 const actionCodeSettings = {
-url: 'https://tomos.bot/index.html?mode=signIn',
+url: '/index.html?mode=signIn',
 handleCodeInApp: true
 };
 try {
@@ -2641,7 +2641,7 @@ const empresa = EMPRESA || getEmpresa();
 const botSelectEl = $('botSelect');
 const botId = (botSelectEl?.value || BOT || '').trim();
 if (!empresa || !botId) return;
-const chatUrl = new URL('https://tomos.bot/chat.html');
+const chatUrl = new URL('/chat.html', window.location.origin);
 chatUrl.searchParams.set('empresa', empresa);
 chatUrl.searchParams.set('bot', botId);
 window.open(chatUrl.toString(), '_blank', 'noopener');
@@ -4667,7 +4667,7 @@ loginErrorEl.classList.remove('hidden');
 $('btnLogout').addEventListener('click', async () => {
 try {
 await signOutFromFirebase();
-window.location.href = "https://tomos.bot/";
+window.location.href = "/";
 } catch (error) {
 console.error(error);
 }
@@ -4794,7 +4794,7 @@ currentUrl.searchParams.set('empresa', EMPRESA);
   await initAll();
   const live = document.getElementById('liveChatFrame');
   if (live && EMPRESA) {
-    const chatUrl = new URL('https://tomos.bot/chat.html');
+    const chatUrl = new URL('/chat.html', window.location.origin);
     chatUrl.searchParams.set('empresa', EMPRESA);
 chatUrl.searchParams.set('bot', BOT);
     live.src = chatUrl.toString();
@@ -6251,7 +6251,7 @@ t.style.height='auto';
 t.style.height=t.scrollHeight+'px';
 }
 // Chat test link
-const chatUrl = new URL('https://tomos.bot/chat.html');
+const chatUrl = new URL('/chat.html', window.location.origin);
 chatUrl.searchParams.set('empresa', EMPRESA);
 chatUrl.searchParams.set('bot', BOT);
 $('chatTestLink').value = chatUrl.toString();
@@ -7932,7 +7932,7 @@ return;
 window.open(`https://cal.com/${link}`, '_blank', 'noopener');
 });
 }
-const scriptAttrs = [`src="https://tomos.bot/embed.js"`, `data-empresa="${EMPRESA}"`];
+const scriptAttrs = [`src="/embed.js"`, `data-empresa="${EMPRESA}"`];
 scriptAttrs.push(`data-bot="${BOT}"`);
 const code = `<script ${scriptAttrs.join(' ')}></script>`;
 const box = $('embedScriptBox');
