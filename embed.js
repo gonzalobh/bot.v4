@@ -99,8 +99,9 @@
       }
     } catch {}
 
+    const BASE_URL = "https://tomos.bot";
     try {
-      const configUrl = new URL(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, window.location.origin);
+      const configUrl = new URL(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, BASE_URL);
       const res = await fetch(configUrl.toString());
       if (res.ok) {
         const data = await res.json();
@@ -148,7 +149,7 @@
     const params = new URLSearchParams({ empresa });
     if (botAttr) params.set("bot", botAttr);
     params.set("hideLocation", "1");
-    const iframeUrl = new URL("/chat.html", window.location.origin);
+    const iframeUrl = new URL("/chat.html", BASE_URL);
     iframeUrl.search = params.toString();
     const iframeSrc = iframeUrl.toString();
 
@@ -797,7 +798,7 @@
     let externalOriginSent = false;
 
     window.addEventListener("message", (e) => {
-      if (e.origin !== window.location.origin) return;
+      if (e.origin !== BASE_URL) return;
       const d = e.data || {};
 
       switch (d.action) {
