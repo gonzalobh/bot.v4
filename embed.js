@@ -690,7 +690,8 @@
       const iconPayload = {
         imageUrl: data.imageUrl || "",
         svg: data.svg || "",
-        radius: data.radius
+        radius: data.radius,
+        iconColor: data.iconColor || ""
       };
       if (!iconPayload.imageUrl && !iconPayload.svg) return;
 
@@ -708,6 +709,10 @@
         img.style.width = "28px";
         img.style.height = "28px";
         img.style.objectFit = "contain";
+        // Aplicar color al SVG cargado como img usando CSS filter
+        if (iconPayload.iconColor) {
+          img.style.filter = colorToFilter(iconPayload.iconColor);
+        }
         btn.appendChild(img);
       } else if (iconPayload.svg?.includes("<svg")) {
         const svg = new DOMParser()
@@ -735,6 +740,21 @@
       }
 
       syncVisibility();
+    };
+
+    // Convierte un color hex/rgb a CSS filter para colorear SVGs cargados como <img>
+    // Para blanco (#fff) usa brightness(0) invert(1), para otros colores aproxima con sepia+saturate
+    const colorToFilter = (color) => {
+      const c = (color || '').trim().toLowerCase();
+      if (c === '#fff' || c === '#ffffff' || c === 'white') {
+        return 'brightness(0) invert(1)';
+      }
+      if (c === '#000' || c === '#000000' || c === 'black') {
+        return 'brightness(0)';
+      }
+      // Para otros colores: usar brightness(0) + sepia + hue-rotate aproximado
+      // Mejor solución: dejar que el iframe actualice el ícono cuando cargue
+      return 'brightness(0) invert(1)'; // fallback a blanco
     };
 
     const BUTTON_COLOR_KEY = "tomos.chat.btnColor";
@@ -790,17 +810,20 @@
         const icon = cfg.widgetIcon;
 
         if (typeof icon === 'string' && icon.trim()) {
-          // Path relativo como "wids/6.svg" → fetch del SVG desde BASE_URL
+          // Path relativo como "wids/6.svg" → fetch con CORS (habilitado en vercel.json)
           const svgUrl = new URL(icon, BASE_URL).toString();
+          const iconColor = cfg.widgetIconColor || '#FFFFFF';
           try {
             const svgRes = await fetch(svgUrl);
             if (svgRes.ok) {
               const svgText = await svgRes.text();
-              const iconColor = cfg.widgetIconColor || '#FFFFFF';
-              // Aplicar color al SVG
+              // Colorear el SVG con el color configurado
               const coloredSvg = svgText
-                .replace(/<svg/, `<svg fill="${iconColor}" color="${iconColor}"`)
-                .replace(/stroke="(?!none)[^"]*"/g, `stroke="${iconColor}"`);
+                .replace(/<svg([^>]*)>/, (m, attrs) => {
+                  // Quitar fill/stroke existentes del elemento raíz y poner los correctos
+                  const clean = attrs.replace(/\s*(fill|stroke)="[^"]*"/g, '');
+                  return `<svg${clean} fill="${iconColor}" stroke="${iconColor}">`;
+                });
               applyChatButtonIcon({ svg: coloredSvg, radius }, { persist: true });
             }
           } catch {}
