@@ -772,8 +772,10 @@ function initSystemPromptListener() {
     return;
   }
 
+  // 💰 FIREBASE COST: .once() en lugar de .on() — el prompt no cambia mid-session.
+  // Ahorramos 1 conexión WebSocket permanente por cada visitante con el iframe cargado.
   systemPromptRef = db.ref(`empresas/${EMPRESA}/bots/${BOT}/config/prompt`);
-  systemPromptRef.on('value', (snap) => {
+  systemPromptRef.once('value', (snap) => {
     const value = snap.val();
     SYSTEM_PROMPT = typeof value === 'string' ? value : '';
   }, (err) => {
@@ -834,7 +836,8 @@ function applyAutoOpenConfig(value) {
 }
 
 try {
-  eref('config/leadCaptureEnabled').on('value', (snap) => {
+  // 💰 FIREBASE COST: .once() en lugar de .on() — ahorra 1 conexión WebSocket permanente por visitante.
+  eref('config/leadCaptureEnabled').once('value', (snap) => {
     applyLeadCaptureConfig(snap.val());
   }, (err) => {
     console.warn('No se pudo leer config/leadCaptureEnabled', err);
@@ -844,7 +847,8 @@ try {
 }
 
 try {
-  eref('config/autoOpenChat').on('value', (snap) => {
+  // 💰 FIREBASE COST: .once() en lugar de .on() — ahorra 1 conexión WebSocket permanente por visitante.
+  eref('config/autoOpenChat').once('value', (snap) => {
     applyAutoOpenConfig(snap.val());
   }, (err) => {
     console.warn('No se pudo leer config/autoOpenChat', err);
@@ -2497,12 +2501,12 @@ function initEmbedIntegration() {
 
   // 🔹 Suscribirse a config/chatVisible en Firebase
   if (typeof eref === "function") {
-    eref("config/chatVisible").on("value", (snap) => {
+    // 💰 FIREBASE COST: .once() en lugar de .on() — ahorra 1 conexión WebSocket permanente por visitante.
+    // chatVisible no cambia mientras el usuario está en la página. Si el admin lo cambia,
+    // el efecto se verá en la próxima carga de la página.
+    eref("config/chatVisible").once("value", (snap) => {
       const raw = snap.val();
-      // si es false => oculto, si no existe o es true => visible
       CHAT_BUTTON_VISIBLE = raw === false ? false : true;
-
-      // Enviar actualización inmediata al embed (por si ya está listo)
       try {
         window.parent.postMessage(
           { action: "chatButtonStatus", visible: CHAT_BUTTON_VISIBLE },

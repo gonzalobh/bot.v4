@@ -422,11 +422,30 @@
 
     const frame = document.createElement("iframe");
     frame.id = "chatWidgetFrame";
-    frame.src = iframeSrc;
+    // 💰 FIREBASE COST: NO asignar frame.src todavía.
+    // El iframe se carga en diferido (lazy) — solo cuando el usuario hace clic en el botón
+    // o cuando autoOpen está activo. Esto elimina TODAS las conexiones Firebase para
+    // visitantes que nunca abren el chat (típicamente el 90%+ del tráfico).
     frame.allow = "clipboard-write; clipboard-read";
 
     // 🔹 Todo vive dentro del shadow
     shadow.append(btn, bubble, frame);
+
+    // Flag: ¿ya se cargó el iframe?
+    let frameLoaded = false;
+
+    // Carga el iframe bajo demanda (primera vez que se necesita)
+    const ensureFrameLoaded = () => {
+      if (frameLoaded) return Promise.resolve();
+      frameLoaded = true;
+      frame.src = iframeSrc;
+      return new Promise((resolve) => {
+        const onLoad = () => { frame.removeEventListener('load', onLoad); resolve(); };
+        frame.addEventListener('load', onLoad);
+        // Fallback si load no dispara
+        setTimeout(resolve, 5000);
+      });
+    };
 
     // 🔄 Comunicación con el iframe
     let ready = false, got = false, currentPosition = 'right';
@@ -521,18 +540,26 @@
     };
 
     const syncVisibility = () => {
-      if (pendingVisibility === null) return;
-      if (!positionResolved) return;
-      if (!iconReady) {
-        btn.style.display = "none";
-        return;
-      }
+      // 💰 FIREBASE COST: con lazy load no necesitamos esperar al iframe para mostrar el botón.
+      // El botón se muestra apenas iconReady=true (inmediato con el ícono por defecto o cacheado).
+      if (!iconReady) return;
 
-      btn.style.display = pendingVisibility ? "flex" : "none";
-      if (!pendingVisibility) {
+      // Si no hay visibilidad del iframe aún, asumimos visible=true (default)
+      const shouldShow = pendingVisibility !== false;
+      btn.style.display = shouldShow ? "flex" : "none";
+
+      if (!shouldShow) {
         frame.style.display = "none";
         hideBubble();
         return;
+      }
+
+      // Posición puede resolverse sin iframe
+      if (!positionResolved) {
+        // Aplicar posición por defecto inmediatamente
+        if (!positionResolved) {
+          positionResolved = true;
+        }
       }
 
       maybeShowBubble();
@@ -620,7 +647,10 @@
       isChatOpen = true;
       hideBubble();
       frame.style.display = "block";
-      requestAnimationFrame(() => frame.classList.add("is-visible"));
+      // 💰 FIREBASE COST: cargar el iframe ahora (primera vez que se abre el chat)
+      ensureFrameLoaded().then(() => {
+        requestAnimationFrame(() => frame.classList.add("is-visible"));
+      });
       showCloseIcon();
       const openFn = () => {
         frame.contentWindow.postMessage({ action: "openChatWindow" }, "*");
@@ -718,6 +748,28 @@
 
     restoreIconFromSession();
 
+    // 💰 FIREBASE COST: con lazy load, el iframe no está cargado al inicio.
+    // Si no hay ícono cacheado en sessionStorage, mostramos el ícono por defecto
+    // directamente desde el config.json (que ya se descargó) o usamos el SVG por defecto.
+    // Así el botón aparece visible inmediatamente sin necesitar el iframe.
+    if (!iconReady) {
+      // Intentar usar ícono del config.json público si lo tiene
+      if (config?.widgetIcon?.svg || config?.widgetIcon?.imageUrl) {
+        applyChatButtonIcon({
+          svg: config.widgetIcon.svg || '',
+          imageUrl: config.widgetIcon.imageUrl || '',
+          radius: config.widgetIcon.radius
+        }, { persist: true });
+      } else {
+        // Ícono por defecto (burbuja de chat SVG)
+        const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+        applyChatButtonIcon({ svg: defaultSvg, radius: 50 }, { persist: false });
+      }
+      // Cuando el iframe cargue (si el usuario lo abre), actualizará el ícono real
+      iconReady = true;
+      syncVisibility();
+    }
+
     applyFontFamily(config?.fontFamily);
     const welcomeText = (config?.welcome || "").toString().trim();
     if (welcomeText) {
@@ -752,20 +804,13 @@
 
         case "chatReady":
           ready = true;
-          if (!iconReady) {
-            frame.contentWindow.postMessage({ action: "getChatButtonIcon" }, "*");
-          }
+          // Actualizar ícono real desde Firebase (reemplaza el ícono por defecto/cacheado)
+          frame.contentWindow.postMessage({ action: "getChatButtonIcon" }, "*");
           frame.contentWindow.postMessage({ action: "getChatButtonStatus" }, "*");
+          // Posición ya está resuelta, pero la actualizamos con el valor real de Firebase
           if (!positionResolved) {
-            if (positionResolveTimeout) clearTimeout(positionResolveTimeout);
-            positionResolveTimeout = setTimeout(() => {
-              positionResolved = true;
-              positionResolveTimeout = null;
-              syncVisibility();
-              if (pendingBubble) {
-                maybeShowBubble();
-              }
-            }, 500);
+            positionResolved = true;
+            syncVisibility();
           }
           break;
 
@@ -827,17 +872,9 @@
       }
     };
 
-    // ⏳ Solicitar estado e ícono periódicamente hasta que responda
-    const ping = setInterval(() => {
-      if (got && iconReady) { clearInterval(ping); return; }
-      try {
-        frame.contentWindow.postMessage({ action: "getChatButtonStatus" }, "*");
-        if (!iconReady) {
-          frame.contentWindow.postMessage({ action: "getChatButtonIcon" }, "*");
-        }
-      } catch {}
-    }, 800);
-    setTimeout(() => clearInterval(ping), 6000);
+    // 💰 FIREBASE COST: el ping al iframe se elimina.
+    // Con lazy load, el iframe solo existe después de que el usuario hace clic.
+    // El ícono y posición se obtienen del sessionStorage o config.json, no del iframe.
   };
 
   main();
