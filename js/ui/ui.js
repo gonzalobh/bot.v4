@@ -6258,7 +6258,10 @@ $('chatTestLink').value = chatUrl.toString();
 $('copyChatLink').onclick = ()=>{ navigator.clipboard.writeText(chatUrl.toString()); toast(t('Copiado')); };
 $('openChatLink').onclick = ()=> window.open(chatUrl.toString(), '_blank');
 }
+let _knowledgeInited = false;
 function initKnowledge() {
+if (_knowledgeInited) return;
+_knowledgeInited = true;
 const pagesRef = eref('config/contextPages');
 const legacyRef = eref('config/contextInfo');
 const txt = $('contextText');
@@ -6820,16 +6823,14 @@ if (!page) return;
 page.content = e.target.innerHTML;
 updateCounter();
 });
-btn.addEventListener('click', () =>
-canWrite(async () => {
-if (btn.disabled) return;
+btn.addEventListener('click', async () => {
+if (btn.disabled || !canWriteFlag) return;
 const page = pages.find((p) => p.id === currentPageId);
 if (page) {
 page.content = txt.innerHTML;
 }
 await savePages(true);
-})
-);
+});
 window.__applyKnowledgeWriteState = () => {
 const disabled = !canWriteFlag;
 if (addBtn) {
