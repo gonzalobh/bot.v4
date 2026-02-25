@@ -6485,8 +6485,25 @@ await pagesRef.set(payload);
 const aggregated = pages.map((p) => p.content || '').filter(Boolean).join('\n\n');
 await legacyRef.set(aggregated);
 if (showToast) showSavedMessage();
+} catch (err) {
+console.error('[savePages] Firebase write failed:', err);
+// Show error to user
+const msg = $('msgContext');
+if (msg) {
+msg.textContent = '✖ ' + (err.message || 'Error al guardar. Verificá tus permisos.');
+msg.className = 'text-red-600 text-sm';
+msg.classList.remove('hidden');
+setTimeout(() => {
+msg.classList.add('hidden');
+msg.textContent = '✔ Saved';
+msg.className = 'text-green-600 text-sm hidden';
+}, 3000);
+}
+throw err;
 } finally {
-isSaving = false;
+// Delay releasing isSaving so the realtime listener doesn't overwrite
+// the editor content immediately after a successful save
+setTimeout(() => { isSaving = false; }, 1500);
 }
 }
 // ✅ SIN OpenAI – obtiene texto completo del crawler
