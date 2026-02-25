@@ -750,27 +750,63 @@
 
     restoreIconFromSession();
 
-    // 💰 FIREBASE COST: con lazy load, el iframe no está cargado al inicio.
-    // Si no hay ícono cacheado en sessionStorage, mostramos el ícono por defecto
-    // directamente desde el config.json (que ya se descargó) o usamos el SVG por defecto.
-    // Así el botón aparece visible inmediatamente sin necesitar el iframe.
-    if (!iconReady) {
-      // Intentar usar ícono del config.json público si lo tiene
-      if (config?.widgetIcon?.svg || config?.widgetIcon?.imageUrl) {
-        applyChatButtonIcon({
-          svg: config.widgetIcon.svg || '',
-          imageUrl: config.widgetIcon.imageUrl || '',
-          radius: config.widgetIcon.radius
-        }, { persist: true });
-      } else {
-        // Ícono por defecto (burbuja de chat SVG)
-        const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
-        applyChatButtonIcon({ svg: defaultSvg, radius: 50 }, { persist: false });
+    // Carga el ícono, color y posición reales desde Firebase REST API (sin SDK, sin iframe).
+    // Son solo ~40 bytes — costo mínimo pero muestra el botón correcto desde el inicio.
+    const DB_URL = "https://timbre-c9547-default-rtdb.europe-west1.firebasedatabase.app";
+    const loadButtonAppearance = async (empresa, bot) => {
+      // Intentar desde sessionStorage primero (evita la llamada si ya se cargó)
+      if (iconReady) return;
+      try {
+        // Construir la ruta del bot (misma lógica que chat.html: empresas/{empresa}/bots/{bot})
+        const botPath = `empresas/${encodeURIComponent(empresa)}/bots/${encodeURIComponent(bot)}/config`;
+        const fields = ["widgetIcon", "widgetIconColor", "widgetPosition", "chatButtonColor", "widgetRadius", "chatVisible"];
+        const url = `${DB_URL}/${botPath}.json?shallow=false`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const cfg = await res.json();
+        if (!cfg) return;
+
+        // Visibilidad
+        if (cfg.chatVisible === false) {
+          pendingVisibility = false;
+          syncVisibility();
+          return;
+        }
+        pendingVisibility = true;
+
+        // Posición
+        if (cfg.widgetPosition) {
+          applyWidgetPosition(cfg.widgetPosition, true);
+        } else {
+          positionResolved = true;
+        }
+
+        // Color del botón
+        if (cfg.chatButtonColor) {
+          btn.style.backgroundColor = cfg.chatButtonColor;
+        }
+
+        // Ícono
+        const icon = cfg.widgetIcon;
+        const radius = cfg.widgetRadius ?? cfg.widgetIcon?.radius ?? 50;
+        if (icon?.imageUrl || icon?.svg) {
+          applyChatButtonIcon({ imageUrl: icon.imageUrl || '', svg: icon.svg || '', radius }, { persist: true });
+        } else {
+          // Ícono por defecto solo si Firebase no tiene ninguno configurado
+          const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+          applyChatButtonIcon({ svg: defaultSvg, radius }, { persist: false });
+        }
+      } catch {
+        // Si falla la llamada, mostrar botón con ícono por defecto igual
+        if (!iconReady) {
+          const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+          applyChatButtonIcon({ svg: defaultSvg, radius: 50 }, { persist: false });
+          positionResolved = true;
+          syncVisibility();
+        }
       }
-      // Cuando el iframe cargue (si el usuario lo abre), actualizará el ícono real
-      iconReady = true;
-      syncVisibility();
-    }
+    };
+    loadButtonAppearance(empresa, botId);
 
     applyFontFamily(config?.fontFamily);
     const welcomeText = (config?.welcome || "").toString().trim();
