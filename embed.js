@@ -737,6 +737,8 @@
       syncVisibility();
     };
 
+    const BUTTON_COLOR_KEY = "tomos.chat.btnColor";
+
     const restoreIconFromSession = () => {
       try {
         const stored = sessionStorage.getItem(ICON_STORAGE_KEY);
@@ -746,22 +748,22 @@
           applyChatButtonIcon(parsed, { persist: false });
         }
       } catch {}
+      // Restaurar color del botón (guardado separado)
+      try {
+        const color = sessionStorage.getItem(BUTTON_COLOR_KEY);
+        if (color) btn.style.backgroundColor = color;
+      } catch {}
     };
 
     restoreIconFromSession();
 
-    // Carga el ícono, color y posición reales desde Firebase REST API (sin SDK, sin iframe).
-    // Son solo ~40 bytes — costo mínimo pero muestra el botón correcto desde el inicio.
+    // Carga ícono, color y posición desde Firebase REST API — sin SDK, sin iframe.
     const DB_URL = "https://timbre-c9547-default-rtdb.europe-west1.firebasedatabase.app";
     const loadButtonAppearance = async (empresa, bot) => {
-      // Intentar desde sessionStorage primero (evita la llamada si ya se cargó)
       if (iconReady) return;
       try {
-        // Construir la ruta del bot (misma lógica que chat.html: empresas/{empresa}/bots/{bot})
         const botPath = `empresas/${encodeURIComponent(empresa)}/bots/${encodeURIComponent(bot)}/config`;
-        const fields = ["widgetIcon", "widgetIconColor", "widgetPosition", "chatButtonColor", "widgetRadius", "chatVisible"];
-        const url = `${DB_URL}/${botPath}.json?shallow=false`;
-        const res = await fetch(url);
+        const res = await fetch(`${DB_URL}/${botPath}.json?shallow=false`);
         if (!res.ok) return;
         const cfg = await res.json();
         if (!cfg) return;
@@ -775,29 +777,43 @@
         pendingVisibility = true;
 
         // Posición
-        if (cfg.widgetPosition) {
-          applyWidgetPosition(cfg.widgetPosition, true);
-        } else {
-          positionResolved = true;
-        }
+        applyWidgetPosition(cfg.widgetPosition || 'right', true);
 
-        // Color del botón
+        // Color del botón — persistir para restauración inmediata en siguiente carga
         if (cfg.chatButtonColor) {
           btn.style.backgroundColor = cfg.chatButtonColor;
+          try { sessionStorage.setItem(BUTTON_COLOR_KEY, cfg.chatButtonColor); } catch {}
         }
 
-        // Ícono
+        // Ícono — puede ser string path ("wids/6.svg"), objeto {imageUrl,svg}, o nulo
+        const radius = typeof cfg.widgetRadius === 'number' ? cfg.widgetRadius : 50;
         const icon = cfg.widgetIcon;
-        const radius = cfg.widgetRadius ?? cfg.widgetIcon?.radius ?? 50;
-        if (icon?.imageUrl || icon?.svg) {
+
+        if (typeof icon === 'string' && icon.trim()) {
+          // Path relativo como "wids/6.svg" → fetch del SVG desde BASE_URL
+          const svgUrl = new URL(icon, BASE_URL).toString();
+          try {
+            const svgRes = await fetch(svgUrl);
+            if (svgRes.ok) {
+              const svgText = await svgRes.text();
+              const iconColor = cfg.widgetIconColor || '#FFFFFF';
+              // Aplicar color al SVG
+              const coloredSvg = svgText
+                .replace(/<svg/, `<svg fill="${iconColor}" color="${iconColor}"`)
+                .replace(/stroke="(?!none)[^"]*"/g, `stroke="${iconColor}"`);
+              applyChatButtonIcon({ svg: coloredSvg, radius }, { persist: true });
+            }
+          } catch {}
+        } else if (icon?.imageUrl || icon?.svg) {
           applyChatButtonIcon({ imageUrl: icon.imageUrl || '', svg: icon.svg || '', radius }, { persist: true });
-        } else {
-          // Ícono por defecto solo si Firebase no tiene ninguno configurado
+        }
+
+        // Fallback si no se pudo cargar el ícono
+        if (!iconReady) {
           const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
           applyChatButtonIcon({ svg: defaultSvg, radius }, { persist: false });
         }
       } catch {
-        // Si falla la llamada, mostrar botón con ícono por defecto igual
         if (!iconReady) {
           const defaultSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
           applyChatButtonIcon({ svg: defaultSvg, radius: 50 }, { persist: false });
