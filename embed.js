@@ -1,5 +1,7 @@
 (() => {
 
+  const BASE_URL = "https://tomos.bot";
+
   // 🚫 Evitar que embed.js se ejecute dentro del panel admin o dentro del iframe de preview
   if (window.self !== window.top) {
     console.warn("Embed.js deshabilitado dentro del panel admin");
@@ -99,7 +101,6 @@
       }
     } catch {}
 
-    const BASE_URL = "https://tomos.bot";
     try {
       const configUrl = new URL(`/config/${encodeURIComponent(normalizedEmpresaId)}/${encodeURIComponent(normalizedBotId)}.json`, BASE_URL);
       const res = await fetch(configUrl.toString());
