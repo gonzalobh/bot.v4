@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Superadministrador</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --border: #e4e4e7;
+      --text: #18181b;
+      --text-muted: #71717a;
+      --surface: #fafafa;
+      --radius: 14px;
+      --primary: #18181b;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #f4f4f5;
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    /* ── Header ── */
+    .sp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.75rem;
+    }
+    .sp-header-title { font-size: 22px; font-weight: 700; color: var(--text); }
+    .sp-header-sub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Tabs ── */
+    .sp-tabs { display: flex; gap: 4px; margin-bottom: 1.25rem; }
+    .sp-tab {
+      padding: 7px 18px; border-radius: 9px; font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border); background: #fff; color: var(--text-muted);
+      cursor: pointer; transition: all .12s;
+    }
+    .sp-tab:hover   { background: var(--surface); color: var(--text); }
+    .sp-tab.active  { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* ── Card / Section ── */
+    .sp-card {
+      background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.5rem; margin-bottom: 1rem;
+    }
+    .sp-card-title { font-size: 15px; font-weight: 600; margin-bottom: 0.25rem; color: var(--text); }
+    .sp-card-sub   { font-size: 12px; color: var(--text-muted); margin-bottom: 1.25rem; }
+
+    /* ── Form grid ── */
+    .sp-form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.85rem; }
+    .sp-form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .sp-field { display: flex; flex-direction: column; gap: 5px; }
+    .sp-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+    .sp-input {
+      padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border);
+      font-size: 13px; font-family: inherit; color: var(--text); background: #fff;
+      outline: none; transition: border-color .12s;
+    }
+    .sp-input:focus { border-color: #a1a1aa; }
+    .sp-input:disabled { background: var(--surface); color: var(--text-muted); cursor: not-allowed; }
+    .sp-hint { font-size: 11px; color: #a1a1aa; }
+    .sp-form-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: flex-end; grid-column: 1 / -1; padding-top: 4px; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px; border-radius: 9px; font-size: 13px; font-weight: 500;
+      border: 1px solid transparent; cursor: pointer; transition: all .12s; font-family: inherit;
+    }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: #27272a; }
+    .btn-ghost   { background: #fff; color: var(--text); border-color: var(--border); }
+    .btn-ghost:hover { background: var(--surface); }
+    .btn-danger  { background: #fff; color: #ef4444; border-color: #fecaca; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-sm      { padding: 5px 12px; font-size: 12px; }
+
+    /* ── Table ── */
+    .sp-table-wrap { overflow-x: auto; }
+    .sp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .sp-table thead tr { border-bottom: 1px solid var(--border); }
+    .sp-table th {
+      padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted);
+    }
+    .sp-table td { padding: 11px 12px; border-bottom: 1px solid #f4f4f5; color: var(--text); vertical-align: middle; }
+    .sp-table tbody tr:last-child td { border-bottom: none; }
+    .sp-table tbody tr:hover td { background: #fafafa; }
+    .sp-table-empty { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 13px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 9999px; font-size: 11px; font-weight: 600;
+    }
+    .badge-plan  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-none  { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+    .badge-green { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+
+    /* ── Table action links ── */
+    .tbl-action { font-size: 12px; color: var(--text-muted); cursor: pointer; background: none; border: none; font-family: inherit; padding: 0; }
+    .tbl-action:hover { color: var(--text); text-decoration: underline; }
+    .tbl-action.danger:hover { color: #ef4444; }
+
+    /* ── Count pill ── */
+    .count-pill {
+      font-size: 11px; font-weight: 500; color: var(--text-muted);
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 2px 10px; border-radius: 9999px;
+    }
+
+    /* ── Loader ── */
+    #loader {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; gap: 12px;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--text); border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Login card ── */
+    #login {
+      max-width: 400px; margin: 80px auto;
+      background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 2.5rem; text-align: center;
+    }
+    #login h1  { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    #login p   { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; }
+    .google-btn {
+      width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+      background: #fff; font-size: 14px; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      font-family: inherit; transition: background .12s; color: var(--text);
+    }
+    .google-btn:hover { background: var(--surface); }
+
+    /* ── Unauthorized ── */
+    #unauthorized {
+      max-width: 400px; margin: 80px auto;
+      background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 2.5rem; text-align: center;
+    }
+    #unauthorized h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    #unauthorized p  { font-size: 13px; color: var(--text-muted); margin-bottom: 1.25rem; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 100; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
+      padding: 1.75rem; width: 100%; max-width: 460px; box-shadow: 0 8px 32px rgba(0,0,0,.12);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; }
+    .modal-title  { font-size: 15px; font-weight: 600; }
+    .modal-sub    { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .modal-close  { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 18px; line-height: 1; padding: 2px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-form   { display: flex; flex-direction: column; gap: 12px; }
+    .modal-actions { display: flex; gap: 8px; padding-top: 4px; }
+
+    /* ── Messages ── */
+    .sp-msg { font-size: 12px; margin-top: 10px; display: none; }
+    .sp-msg.ok  { color: #15803d; }
+    .sp-msg.err { color: #dc2626; }
+
+    /* ── Section header ── */
+    .sp-section-head {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;
+    }
+
+    /* Logout btn */
+    .logout-btn {
+      padding: 7px 14px; border-radius: 9px; border: 1px solid var(--border);
+      background: #fff; color: var(--text-muted); font-size: 13px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all .12s;
+    }
+    .logout-btn:hover { border-color: #a1a1aa; color: var(--text); }
+
+    @media (max-width: 700px) {
+      .sp-form-grid, .sp-form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page" id="app">
+
+  <!-- LOADER -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <span style="font-size:13px;color:var(--text-muted)">Cargando...</span>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="login" style="display:none">
+    <h1>Superadministrador</h1>
+    <p>Inicia sesión con tu cuenta de Google autorizada para continuar.</p>
+    <button class="google-btn" id="google-login">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Acceder con Google
+    </button>
+    <p id="login-error" style="color:#dc2626;font-size:12px;margin-top:8px;display:none"></p>
+  </div>
+
+  <!-- UNAUTHORIZED -->
+  <div id="unauthorized" style="display:none">
+    <h2>Acceso denegado</h2>
+    <p id="unauthorized-message">Tu cuenta no tiene permisos para acceder a este panel.</p>
+    <button class="btn btn-ghost" id="unauthorized-logout">Cerrar sesión</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" style="display:none">
+
+    <!-- Header -->
+    <div class="sp-header">
+      <div>
+        <div class="sp-header-title">Panel Superadministrador</div>
+        <div class="sp-header-sub">Gestiona empresas, planes y administradores</div>
+      </div>
+      <button class="logout-btn" id="logout-btn">Cerrar sesión</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="sp-tabs">
+      <button class="sp-tab active" id="tab-empresas-btn">Empresas</button>
+      <button class="sp-tab" id="tab-planes-btn">Planes</button>
+    </div>
+
+    <!-- ══ TAB EMPRESAS ══ -->
+    <div id="tab-empresas">
+
+      <!-- Crear empresa -->
+      <div class="sp-card">
+        <div class="sp-card-title">Crear empresa</div>
+        <div class="sp-card-sub">Se creará un usuario en Firebase Auth y el nodo correspondiente en la base de datos.</div>
+        <form id="create-form">
+          <div class="sp-form-grid cols-3">
+            <div class="sp-field">
+              <label class="sp-label">Nombre de la empresa</label>
+              <input class="sp-input" id="company-name" type="text" placeholder="Ej: Boletum" required />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Correo del administrador</label>
+              <input class="sp-input" id="admin-email" type="email" placeholder="admin@empresa.com" required />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Contraseña</label>
+              <input class="sp-input" id="admin-password" type="password" placeholder="Mínimo 8 caracteres" required />
+            </div>
+            <div class="sp-form-actions">
+              <button type="submit" class="btn btn-primary">Crear empresa</button>
+            </div>
+          </div>
+        </form>
+        <div class="sp-msg" id="create-message"></div>
+      </div>
+
+      <!-- Lista de empresas -->
+      <div class="sp-card">
+        <div class="sp-section-head">
+          <div class="sp-card-title">Empresas registradas</div>
+          <span class="count-pill" id="company-count"></span>
+        </div>
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Email administrador</th>
+                <th>Plan asignado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="company-list"></tbody>
+          </table>
+        </div>
+        <div class="sp-table-empty" id="companies-empty" style="display:none">No hay empresas registradas.</div>
+      </div>
+
+    </div><!-- /tab-empresas -->
+
+    <!-- ══ TAB PLANES ══ -->
+    <div id="tab-planes" style="display:none">
+
+      <!-- Crear / editar plan -->
+      <div class="sp-card">
+        <div class="sp-card-title" id="plan-form-title">Crear plan</div>
+        <div class="sp-card-sub" id="plan-form-sub">Los datos se guardarán en Firebase bajo <code>planes/{id}</code></div>
+        <form id="plan-form">
+          <div class="sp-form-grid">
+            <div class="sp-field">
+              <label class="sp-label">ID del plan</label>
+              <input class="sp-input" id="plan-id" type="text" placeholder="start" required />
+              <span class="sp-hint">Sin espacios: start, grow, scale…</span>
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Nombre visible</label>
+              <input class="sp-input" id="plan-name" type="text" placeholder="Start" required />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Precio mensual ($)</label>
+              <input class="sp-input" id="plan-price" type="number" min="0" placeholder="20" />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Bots incluidos</label>
+              <input class="sp-input" id="plan-bots" type="number" min="1" placeholder="1" />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Conocimiento (chars)</label>
+              <input class="sp-input" id="plan-knowledge" type="number" min="0" placeholder="2000000" />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Respuestas IA / mes</label>
+              <input class="sp-input" id="plan-answers" type="number" min="0" placeholder="8000" />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">Bot extra ($/mes)</label>
+              <input class="sp-input" id="plan-extra-bot" type="number" min="0" placeholder="7" />
+            </div>
+            <div class="sp-field">
+              <label class="sp-label">1.000 msgs extra ($/mes)</label>
+              <input class="sp-input" id="plan-extra-msgs" type="number" min="0" placeholder="12" />
+            </div>
+            <div class="sp-form-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="plan-cancel-edit" style="display:none">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Guardar plan</button>
+            </div>
+          </div>
+        </form>
+        <div class="sp-msg" id="plan-message"></div>
+      </div>
+
+      <!-- Lista de planes -->
+      <div class="sp-card">
+        <div class="sp-section-head">
+          <div class="sp-card-title">Planes registrados</div>
+          <span class="count-pill" id="plan-count"></span>
+        </div>
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Precio</th>
+                <th>Bots</th>
+                <th>Conocimiento</th>
+                <th>Resp./mes</th>
+                <th>Bot extra</th>
+                <th>Msgs extra</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="plan-list"></tbody>
+          </table>
+        </div>
+        <div class="sp-table-empty" id="plans-empty" style="display:none">No hay planes registrados.</div>
+      </div>
+
+    </div><!-- /tab-planes -->
+
+  </div><!-- /dashboard -->
+</div><!-- /page -->
+
+<!-- MODAL: editar empresa -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Editar empresa</div>
+        <div class="modal-sub" id="edit-company-name"></div>
+      </div>
+      <button class="modal-close" id="close-edit">✕</button>
+    </div>
+    <form id="edit-form" class="modal-form">
+      <div class="sp-field">
+        <label class="sp-label">Nombre de la empresa</label>
+        <input class="sp-input" type="text" id="edit-display-name" placeholder="Ej: Tomos Bot" />
+        <span class="sp-hint">Se muestra en el perfil del dashboard</span>
+      </div>
+      <div class="sp-field">
+        <label class="sp-label">Correo del administrador</label>
+        <input class="sp-input" type="email" id="edit-admin-email" required />
+      </div>
+      <div class="sp-field">
+        <label class="sp-label">Nombre visible</label>
+        <input class="sp-input" type="text" id="edit-hotel-name" required />
+      </div>
+      <div class="sp-field">
+        <label class="sp-label">Plan asignado</label>
+        <select class="sp-input" id="edit-plan-select">
+          <option value="">— Sin plan —</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary" style="flex:1">Guardar cambios</button>
+        <button type="button" class="btn btn-ghost" id="cancel-edit" style="flex:1">Cancelar</button>
+      </div>
+    </form>
+    <div class="sp-msg" id="edit-message"></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC2c3S_NtouIjHPrk5LM5c0DQoTWyBrzH4",
+  authDomain: "timbre-c9547.firebaseapp.com",
+  databaseURL: "https://timbre-c9547-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "timbre-c9547",
+  storageBucket: "timbre-c9547.firebasestorage.app",
+  messagingSenderId: "127064655657",
+  appId: "1:127064655657:web:a4e99dcbc6ab33f32c1938"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+const secondaryApp = firebase.apps.find(a => a.name === 'Secondary') ||
+                     firebase.initializeApp(firebaseConfig, 'Secondary');
+const secondaryAuth = firebase.auth(secondaryApp);
+
+// DOM
+const $ = id => document.getElementById(id);
+const loader           = $('loader');
+const loginCard        = $('login');
+const loginBtn         = $('google-login');
+const loginErr         = $('login-error');
+const unauthCard       = $('unauthorized');
+const unauthMsg        = $('unauthorized-message');
+const unauthLogout     = $('unauthorized-logout');
+const dashboardEl      = $('dashboard');
+const logoutBtn        = $('logout-btn');
+const createForm       = $('create-form');
+const createMsg        = $('create-message');
+const companyList      = $('company-list');
+const companiesEmpty   = $('companies-empty');
+const companyCount     = $('company-count');
+const editModal        = $('edit-modal');
+const editForm         = $('edit-form');
+const editDisplayName  = $('edit-display-name');
+const editAdminEmail   = $('edit-admin-email');
+const editHotelName    = $('edit-hotel-name');
+const editPlanSelect   = $('edit-plan-select');
+const editMsg          = $('edit-message');
+const editCompanyLbl   = $('edit-company-name');
+const closeEditBtn     = $('close-edit');
+const cancelEditBtn    = $('cancel-edit');
+const planForm         = $('plan-form');
+const planFormTitle    = $('plan-form-title');
+const planFormSub      = $('plan-form-sub');
+const planMsg          = $('plan-message');
+const planCancelBtn    = $('plan-cancel-edit');
+const planList         = $('plan-list');
+const plansEmpty       = $('plans-empty');
+const planCount        = $('plan-count');
+
+// State
+let companiesRef       = null;
+let currentEditCompany = null;
+let currentEditPlanId  = null;
+let allPlans = {};
+const invalidKey = /[.#$[\]]/;
+
+// Helpers
+const showEl = (el, displayVal) => { el.style.display = displayVal || 'block'; };
+const show = el => {
+  const id = el.id;
+  if (id === 'loader') el.style.display = 'flex';
+  else if (id === 'edit-modal') el.style.display = 'flex';
+  else el.style.display = 'block';
+};
+const hide = el => { el.style.display = 'none'; };
+const showMsg = (el, text, type = 'ok') => {
+  el.textContent = text; el.className = 'sp-msg ' + type; show(el);
+};
+const hideMsg = el => { el.textContent = ''; el.className = 'sp-msg'; hide(el); };
+const fmtNum = n => (n != null && n !== '') ? Number(n).toLocaleString('es-CL') : '—';
+
+// Tabs
+function showTab(tab) {
+  ['empresas','planes'].forEach(t => {
+    const el  = $('tab-' + t);
+    const btn = $('tab-' + t + '-btn');
+    if (t === tab) { show(el); btn.classList.add('active'); }
+    else           { hide(el); btn.classList.remove('active'); }
+  });
+}
+$('tab-empresas-btn').addEventListener('click', () => showTab('empresas'));
+$('tab-planes-btn').addEventListener('click',   () => showTab('planes'));
+
+// Plan select
+function refreshPlanSelect(currentPlanId) {
+  editPlanSelect.innerHTML = '<option value="">— Sin plan —</option>';
+  Object.entries(allPlans)
+    .sort((a,b) => (a[1].price||0) - (b[1].price||0))
+    .forEach(([id, p]) => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = (p.name || id) + ' — $' + (p.price||0) + '/mes';
+      if (id === currentPlanId) opt.selected = true;
+      editPlanSelect.appendChild(opt);
+    });
+}
+
+// Render plans
+function renderPlans(snapshot) {
+  planList.innerHTML = '';
+  allPlans = snapshot.val() || {};
+  const ids = Object.keys(allPlans);
+  planCount.textContent = ids.length ? ids.length + ' planes' : '';
+  if (!ids.length) { show(plansEmpty); return; }
+  hide(plansEmpty);
+
+  ids.sort((a,b) => (allPlans[a].price||0) - (allPlans[b].price||0)).forEach(id => {
+    const p = allPlans[id];
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="font-family:monospace;font-size:12px;color:var(--text-muted)">' + id + '</td>' +
+      '<td style="font-weight:600">' + (p.name||'—') + '</td>' +
+      '<td>$' + (p.price||0) + '/mes</td>' +
+      '<td>' + (p.bots||'—') + ' bot' + ((p.bots||0)>1?'s':'') + '</td>' +
+      '<td>' + fmtNum(p.knowledge) + '</td>' +
+      '<td>' + fmtNum(p.answers) + '</td>' +
+      '<td>+$' + (p.extraBotPrice||0) + '/mes</td>' +
+      '<td>+$' + (p.extraMsgPrice||0) + '/mes</td>' +
+      '<td><div style="display:flex;gap:10px">' +
+        '<button class="tbl-action" data-plan-action="edit" data-plan-id="' + id + '">Editar</button>' +
+        '<button class="tbl-action danger" data-plan-action="delete" data-plan-id="' + id + '">Eliminar</button>' +
+      '</div></td>';
+    planList.appendChild(tr);
+  });
+}
+
+// Plan form
+function planFormReset() {
+  planForm.reset();
+  currentEditPlanId = null;
+  $('plan-id').disabled = false;
+  planFormTitle.textContent = 'Crear plan';
+  planFormSub.innerHTML = 'Los datos se guardarán en Firebase bajo <code>planes/{id}</code>';
+  hide(planCancelBtn);
+  hideMsg(planMsg);
+}
+
+planForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  hideMsg(planMsg);
+  const rawId = $('plan-id').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const name  = $('plan-name').value.trim();
+  if (!rawId || !name) { showMsg(planMsg, 'ID y nombre son obligatorios.', 'err'); return; }
+  if (invalidKey.test(rawId)) { showMsg(planMsg, 'El ID no puede contener . # $ [ ]', 'err'); return; }
+  const data = {
+    name,
+    price:         Number($('plan-price').value)      || 0,
+    bots:          Number($('plan-bots').value)        || 1,
+    knowledge:     Number($('plan-knowledge').value)   || 0,
+    answers:       Number($('plan-answers').value)     || 0,
+    extraBotPrice: Number($('plan-extra-bot').value)   || 0,
+    extraMsgPrice: Number($('plan-extra-msgs').value)  || 0,
+    updatedAt: Date.now()
+  };
+  try {
+    await db.ref('planes/' + rawId).set(data);
+    showMsg(planMsg, 'Plan "' + name + '" guardado correctamente.');
+    planFormReset();
+  } catch(err) { showMsg(planMsg, err.message, 'err'); }
+});
+
+planList.addEventListener('click', e => {
+  const action = e.target.dataset.planAction;
+  const id     = e.target.dataset.planId;
+  if (!action || !id) return;
+  if (action === 'edit') {
+    const p = allPlans[id] || {};
+    currentEditPlanId = id;
+    $('plan-id').value         = id;
+    $('plan-id').disabled      = true;
+    $('plan-name').value       = p.name          || '';
+    $('plan-price').value      = p.price         || '';
+    $('plan-bots').value       = p.bots          || '';
+    $('plan-knowledge').value  = p.knowledge     || '';
+    $('plan-answers').value    = p.answers       || '';
+    $('plan-extra-bot').value  = p.extraBotPrice || '';
+    $('plan-extra-msgs').value = p.extraMsgPrice || '';
+    planFormTitle.textContent  = 'Editando: ' + (p.name || id);
+    planFormSub.textContent    = 'Modificando planes/' + id;
+    show(planCancelBtn);
+    planForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    hideMsg(planMsg);
+  }
+  if (action === 'delete') {
+    if (!confirm('¿Eliminar el plan "' + ((allPlans[id]||{}).name||id) + '"? No se puede deshacer.')) return;
+    db.ref('planes/' + id).remove().catch(err => alert('Error: ' + err.message));
+  }
+});
+planCancelBtn.addEventListener('click', planFormReset);
+
+// Render companies
+function renderCompanies(snapshot) {
+  companyList.innerHTML = '';
+  const companies = snapshot.val() || {};
+  const names = Object.keys(companies);
+  companyCount.textContent = names.length ? names.length + ' empresas' : '';
+  if (!names.length) { show(companiesEmpty); return; }
+  hide(companiesEmpty);
+
+  names.sort((a,b) => a.localeCompare(b)).forEach(name => {
+    const cfg    = (companies[name]||{}).config || {};
+    const planId = cfg.planId || '';
+    const plan   = allPlans[planId];
+    const badge  = plan
+      ? '<span class="badge badge-plan">📋 ' + (plan.name||planId) + '</span>'
+      : '<span class="badge badge-none">Sin plan</span>';
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="font-weight:500">' + name + '</td>' +
+      '<td style="color:var(--text-muted)">' + (cfg.adminEmail||'—') + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><div style="display:flex;gap:10px">' +
+        '<button class="tbl-action" data-action="edit" data-company="' + name + '">Editar</button>' +
+        '<button class="tbl-action danger" data-action="delete" data-company="' + name + '">Eliminar</button>' +
+      '</div></td>';
+    companyList.appendChild(tr);
+  });
+}
+
+// Edit company modal
+function openEditModal(companyName, data) {
+  currentEditCompany = companyName;
+  editCompanyLbl.textContent = companyName;
+  editDisplayName.value = (data&&data.config&&data.config.displayName) || '';
+  editAdminEmail.value  = (data&&data.config&&data.config.adminEmail) || '';
+  editHotelName.value  = (data&&data.config&&data.config.hotelName)  || companyName;
+  refreshPlanSelect((data&&data.config&&data.config.planId) || '');
+  hideMsg(editMsg);
+  editModal.classList.add('open');
+}
+const closeEditModal = () => {
+  currentEditCompany = null;
+  editForm.reset();
+  editModal.classList.remove('open');
+};
+
+companyList.addEventListener('click', e => {
+  const action  = e.target.dataset.action;
+  const company = e.target.dataset.company;
+  if (!action || !company) return;
+  db.ref('empresas/' + company).once('value').then(snap => {
+    if (action === 'edit')   openEditModal(company, snap.val());
+    if (action === 'delete') {
+      if (!confirm('¿Eliminar la empresa "' + company + '"? No se puede deshacer.')) return;
+      snap.ref.remove().catch(err => alert('Error: ' + err.message));
+    }
+  });
+});
+
+editForm.addEventListener('submit', e => {
+  e.preventDefault();
+  if (!currentEditCompany) return;
+  hideMsg(editMsg);
+  const adminEmailVal = editAdminEmail.value.trim();
+  const hotelNameVal  = editHotelName.value.trim();
+  const planIdVal     = editPlanSelect.value;
+  if (!adminEmailVal || !hotelNameVal) { showMsg(editMsg, 'Todos los campos son obligatorios.', 'err'); return; }
+  const displayNameVal = editDisplayName.value.trim();
+  db.ref('empresas/' + currentEditCompany + '/config').update({
+    displayName: displayNameVal || null,
+    adminEmail:  adminEmailVal,
+    hotelName:   hotelNameVal,
+    planId:      planIdVal || null
+  }).then(() => { showMsg(editMsg, 'Cambios guardados.'); setTimeout(closeEditModal, 1000); })
+    .catch(err => showMsg(editMsg, err.message, 'err'));
+});
+
+[closeEditBtn, cancelEditBtn].forEach(b => b.addEventListener('click', closeEditModal));
+editModal.addEventListener('click', e => { if (e.target === editModal) closeEditModal(); });
+
+// Create company
+createForm.addEventListener('submit', e => {
+  e.preventDefault();
+  hideMsg(createMsg);
+  const companyRaw = $('company-name').value.trim();
+  const adminEmail = $('admin-email').value.trim();
+  const adminPwd   = $('admin-password').value.trim();
+  if (!companyRaw || !adminEmail || !adminPwd) { showMsg(createMsg, 'Todos los campos son obligatorios.', 'err'); return; }
+  if (invalidKey.test(companyRaw)) { showMsg(createMsg, 'El nombre no puede contener . # $ [ ]', 'err'); return; }
+  const updates = {};
+  updates['empresas/' + companyRaw + '/config/adminEmail'] = adminEmail;
+  updates['empresas/' + companyRaw + '/config/hotelName']  = companyRaw;
+  updates['empresas/' + companyRaw + '/bots']              = {};
+  secondaryAuth.createUserWithEmailAndPassword(adminEmail, adminPwd)
+    .then(() => db.ref().update(updates))
+    .then(() => { showMsg(createMsg, 'Empresa "' + companyRaw + '" creada con éxito.'); createForm.reset(); })
+    .catch(err => showMsg(createMsg, err.message, 'err'))
+    .finally(() => secondaryAuth.signOut().catch(()=>{}));
+});
+
+// Auth
+const provider = new firebase.auth.GoogleAuthProvider();
+loginBtn.addEventListener('click', () => {
+  hide(loginErr);
+  auth.signInWithPopup(provider).catch(err => { loginErr.textContent = err.message; show(loginErr); });
+});
+logoutBtn.addEventListener('click', () => auth.signOut());
+unauthLogout.addEventListener('click', () => auth.signOut());
+
+auth.onAuthStateChanged(user => {
+  if (loginErr) hide(loginErr);
+  if (!user) {
+    if (companiesRef) { companiesRef.off(); companiesRef = null; }
+    hide(dashboardEl); hide(unauthCard); hide(loader);
+    show(loginCard);
+    return;
+  }
+  show(loader); hide(loginCard); hide(unauthCard);
+
+  db.ref('globalAdmins/' + user.uid).once('value').then(snap => {
+    if (snap.val() !== true) {
+      hide(loader); hide(dashboardEl);
+      unauthMsg.textContent = 'Tu cuenta no tiene permisos para acceder a este panel.';
+      show(unauthCard); return;
+    }
+    hide(loader); show(dashboardEl);
+
+    // Load plans first so badges render correctly
+    db.ref('planes').on('value', planesSnap => {
+      renderPlans(planesSnap);
+      if (companiesRef) db.ref('empresas').once('value').then(renderCompanies);
+    });
+
+    companiesRef = db.ref('empresas');
+    companiesRef.on('value', renderCompanies);
+
+  }).catch(err => {
+    loginErr.textContent = err.message; show(loginErr);
+    hide(loader); show(loginCard);
+  });
+});
+</script>
+</body>
+</html>

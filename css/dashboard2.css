@@ -1,0 +1,286 @@
+/* Bot editor dashboard — uses admin .dashboard-stat-strip cards */
+/* Only override what's specific to dashboard2 */
+
+/* Chart panel */
+.dashboard2-panel {
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  transition: box-shadow .15s, border-color .15s;
+}
+.dashboard2-panel:hover {
+  border-color: #d4d4d8;
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
+.dashboard2-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.dashboard2-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dashboard2-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #18181b;
+  letter-spacing: -0.01em;
+}
+.dashboard2-panel-subtitle {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a1a1aa;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dashboard2-line-chart {
+  height: 200px;
+}
+.dashboard2-line-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Legacy elements kept for compatibility */
+.dashboard2-card { display: none; }
+.dashboard2-chart { display: none; }
+
+/* Bottom row grid — equal height, capped */
+.dash2-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.625rem;
+  margin-top: 0.625rem;
+  align-items: start;
+}
+.dash2-status-panel,
+.dash2-activity-panel {
+  /* Match the status panel height */
+  max-height: 320px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Edit / Ver todas link */
+.dash2-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #a1a1aa;
+  text-decoration: none;
+  transition: color .12s;
+}
+.dash2-edit-link:hover { color: #18181b; }
+
+/* ── Estado del bot ── */
+.dash2-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 4px;
+}
+.dash2-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f4f4f5;
+}
+.dash2-status-row:last-child { border-bottom: none; }
+
+.dash2-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dash2-dot-green  { background: #22c55e; }
+.dash2-dot-yellow { background: #f59e0b; }
+.dash2-dot-red    { background: #ef4444; }
+.dash2-dot-gray   { background: #d4d4d8; }
+
+.dash2-status-key {
+  font-size: 12px;
+  font-weight: 500;
+  color: #71717a;
+  flex: 0 0 100px;
+}
+.dash2-status-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: #18181b;
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* ── Actividad reciente ── */
+.dash2-activity-panel {
+  display: flex;
+  flex-direction: column;
+}
+.dash2-activity-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
+  overflow-y: auto;
+  flex: 1;
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #e4e4e7 transparent;
+}
+.dash2-activity-list::-webkit-scrollbar { width: 4px; }
+.dash2-activity-list::-webkit-scrollbar-track { background: transparent; }
+.dash2-activity-list::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 4px; }
+.dash2-activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  font-size: 12px;
+  color: #a1a1aa;
+}
+.dash2-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f4f5;
+  cursor: pointer;
+  transition: background .1s;
+  border-radius: 8px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.dash2-activity-item:last-child { border-bottom: none; }
+.dash2-activity-item:hover { background: #f9f9f9; }
+
+.dash2-activity-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #52525b;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.dash2-activity-body {
+  flex: 1;
+  min-width: 0;
+}
+.dash2-activity-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #18181b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash2-activity-msg {
+  font-size: 11.5px;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.dash2-activity-time {
+  font-size: 10.5px;
+  color: #d4d4d8;
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Chart tabs */
+.dash2-chart-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #f4f4f5;
+  border-radius: 8px;
+  padding: 3px;
+}
+.dash2-chart-tab {
+  padding: 4px 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #71717a;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.dash2-chart-tab:hover { color: #18181b; }
+.dash2-chart-tab.active {
+  background: #fff;
+  color: #18181b;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+/* Bot identity bar */
+.dash2-bot-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.dash2-bot-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash2-bot-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #18181b;
+  letter-spacing: -0.02em;
+}
+.dash2-widget-preview {
+  cursor: pointer;
+}
+.dash2-widget-btn {
+  width: 44px !important;
+  height: 44px !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18) !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+.dash2-widget-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 20px rgba(0,0,0,.22) !important;
+}
+
+/* Bot info stack */
+.dash2-bot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dash2-bot-template {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a1a1aa;
+  letter-spacing: 0.01em;
+}

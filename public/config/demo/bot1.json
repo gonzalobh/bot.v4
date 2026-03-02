@@ -1,0 +1,5 @@
+{
+  "welcome": "Hola 👋 ¿En qué puedo ayudarte?",
+  "fontFamily": "Inter",
+  "allowedOrigins": ["*"]
+}

@@ -1,0 +1,133 @@
+.iphone{ position:relative; width:320px; height:640px; border-radius:34px; background:#000; padding:0px; box-shadow:0 30px 60px rgba(0,0,0,.25); transform:scale(.7); transform-origin:top center;}
+.iphone-in{ width:100%; height:100%; border-radius:26px; overflow:hidden; background:white}
+.notch{ position:absolute;left:50%;top:0;transform:translateX(-50%); width:160px;height:22px;background:#000;border-bottom-left-radius:16px;border-bottom-right-radius:16px}
+.chat-panel-tab{flex:1 1 auto;text-align:center; border-bottom: 2px solid #4b546200;padding:0.55rem 0.8rem;border-radius:0px;font-size:14px;font-weight:500;color:#4b5563;display:flex;align-items:center;justify-content:center;gap:0.5rem}
+.chat-panel-tab:hover{color:#111;}
+.chat-panel-tab.active{background: #f3f4f600; border-bottom: 2px solid; border-radius: 0px;}
+.chat-columns {
+  align-items: start;
+  display: grid;
+  grid-template-columns: 260px 380px;
+  gap: 1.5rem;
+  justify-content: center;
+}
+.chat-columns > .chat-column { height: 640px; }
+
+.chat-detail-column {
+  height: fit-content;
+  background: #fafafa;
+  border: 1px solid rgba(15,23,42,.08);
+  border-radius: 26px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 24px rgba(15,23,42,.08);
+  animation: cdp-enter 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.chat-detail-column.cdp-exit {
+  animation: cdp-leave 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes cdp-enter {
+  from { opacity: 0; transform: translateX(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes cdp-leave {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(8px) scale(0.98); }
+}
+
+.cdp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.85rem;
+  border-bottom: 1px solid #ebebeb;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+.cdp-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: #18181b;
+}
+.cdp-header-title i { width: 15px; height: 15px; }
+.cdp-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #71717a;
+  transition: color 0.12s, border-color 0.12s;
+}
+.cdp-close-btn:hover { color: #18181b; border-color: #a1a1aa; }
+.cdp-close-btn i { width: 13px; height: 13px; }
+.cdp-body {
+  padding: 1rem 1.25rem;
+  flex: 1;
+  overflow-y: auto;
+  background: #fafafa;
+}
+/* Make content inside third column feel native */
+.cdp-body .space-y-4,
+.cdp-body .space-y-5,
+.cdp-body .space-y-6 { display: flex; flex-direction: column; gap: 1rem; }
+.cdp-body label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #71717a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cdp-body input[type="text"],
+.cdp-body input[type="file"],
+.cdp-body textarea,
+.cdp-body select {
+  font-size: 13px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e4e4e7;
+}
+.cdp-body input[type="range"] { font-size: 13px; }
+.cdp-body .card { box-shadow: none; border: none; padding: 0; background: transparent; }
+/* White card sections inside the body */
+.cdp-body > .space-y-6 > div {
+  background: #fff;
+  border-radius: 14px;
+  padding: 1rem;
+  border: 1px solid #ebebeb;
+}
+.chat-column-secondary{background:#fff;border-radius:26px;padding:24px;box-shadow:0 10px 24px rgba(15,23,42,.08);border:1px solid rgba(15,23,42,.08);}
+.appearance-chip{min-width:94px;justify-content:center;font-weight:500}
+@media (max-width: 1023px) {
+  .chat-columns,
+  .chat-columns.detail-open {
+    grid-template-columns: 1fr;
+  }
+  .chat-columns > .chat-column {
+    height: auto;
+  }
+  .iphone {
+    max-width: 100%;
+    margin-inline: auto;
+    transform: scale(.9);
+  }
+}
+@media (min-width: 1024px) and (max-width: 1300px) {
+  .chat-columns {
+    grid-template-columns: 240px 360px;
+  }
+}
+@media (max-width: 767px) {
+  .iphone {
+    transform: scale(.85);
+  }
+}

@@ -1,0 +1,73 @@
+/* === Header === */
+header {
+  background: rgba(255,255,255,0.95) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e4e4e7 !important;
+  box-shadow: none !important;
+}
+
+header .fixed-logo {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 36px;
+  width: auto;
+  border-radius: 8px;
+  object-fit: contain;
+  z-index: 50;
+}
+
+#autoResponseTypeModalPanel {
+  transform: none;
+  position: relative;
+  z-index: 20;
+}
+
+#headerControls {
+  gap: 8px;
+}
+
+/* Bot selector */
+#botSelect,
+#botSelect option {
+  background-color: #fff !important;
+  color: #18181b !important;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7 !important;
+  font-size: 13px;
+}
+
+#botSelect:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17,24,39,.12);
+}
+
+/* Language select */
+#languageSelect {
+  min-width: 72px;
+  height: 34px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #18181b;
+  background: #fff;
+}
+
+/* Test bot button */
+#testBotButton {
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #fff;
+  color: #18181b;
+  font-size: 13px;
+  height: 34px;
+  transition: background 0.12s, border-color 0.12s;
+}
+#testBotButton:hover {
+  background: #f4f4f5;
+  border-color: #d4d4d8;
+}
